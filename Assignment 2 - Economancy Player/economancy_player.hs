@@ -3,7 +3,8 @@
 
 import Data.Map (Map, fromList, elems)
 import qualified Data.Map as Map
-import EconomancyEntites
+import Data.ByteString (getLine)
+import EconomancyEntites(Card(..), Player(..), State(..), Phase(..))
 
 referenceCards :: Map String Card =
   Map.fromList [
@@ -41,7 +42,7 @@ getInvestment state randomInvestment =
     hasMoreCoinsThanPlayer = numberOfStrongerOpponents (coins thisPlayer) coinsWithOpponents
   in if strongerThanPlayer >= length totalDefenseOfOpponents `div` 2 && hasMoreCoinsThanPlayer >= length totalDefenseOfOpponents `div` 2 then
       let
-        smartInvestment = if min maximumCoinsWithOpponent coinsWithPlayer < coinsWithPlayer 
+        smartInvestment = if min maximumCoinsWithOpponent coinsWithPlayer < coinsWithPlayer
           then maximumCoinsWithOpponent + 1
           else coinsWithPlayer
       in smartInvestment
@@ -65,9 +66,9 @@ Else, the defending capacity is considered.
 nextAttackMove :: State -> Bool -> Int
 nextAttackMove state attacking =
   let playerCards = cards thisPlayer
-      strongestCard = if attacking 
-        then getStrongestCard attack playerCards 
-        else getStrongestCard defense playerCards 
+      strongestCard = if attacking
+        then getStrongestCard attack playerCards
+        else getStrongestCard defense playerCards
       in strongestCard
       where thisPlayer = currentPlayer state
 
@@ -78,12 +79,12 @@ getStrongestCard strength deck =
   in
   -- No Wall of Wealth card yet, hence based around uses == 0
   fst (
-    foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x) 
-    then y 
-    else x) 
-    (0, head deck) 
+    foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x)
+    then y
+    else x)
+    (0, head deck)
     enumeratedDeck
-    ) 
+    )
 
 {-|
 Randomly choose a card to purchase based on the random number randomDecisionFlag.
@@ -94,7 +95,7 @@ makeAPurchase state randomDecisionFlag =
   let availableOptions = getViableOptions inventory coinBalance
   in if coinBalance == 0
     then "Pass"
-    else 
+    else
       case randomDecisionFlag `mod` 5 of
         0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions)
         2 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
@@ -102,9 +103,24 @@ makeAPurchase state randomDecisionFlag =
   where thisPlayer = currentPlayer state
         inventory = shop state
         coinBalance = coins thisPlayer
-          
+
 
 getViableOptions :: Map String Int -> Int -> [Card]
 getViableOptions inventory coinBalance =
   availableOptions
     where availableOptions = [c | c <- elems referenceCards, (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
+
+main = do
+  Data.ByteString.getLine
+  -- parse input into JSON, using a placeholder for now
+  let state = State{day=0,
+    phase=InvestingOrBuy{phaseName="investing"},
+    shop=Map.fromList [("Board of Monopoly", 2)],
+    players=[Player{coins=1, buys=1, cards=[referenceCards Map.! "Sorcerer's Stipend"]}],
+    player=0}
+  case phase state of
+    currentPhase | InvestingOrBuy -> if phaseName currentPhase == "investing"
+      then getInvestment state 1
+      else makeAPurchase state 55
+    currentPhase | Attacking -> nextAttackMove state (player == attacker)
+    _ | End -> show state

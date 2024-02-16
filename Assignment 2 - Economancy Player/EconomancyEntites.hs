@@ -1,9 +1,5 @@
-module EconomancyEntites(
-    Card,
-    Player,
-    Phase,
-    State
-) where
+module EconomancyEntites where
+import Data.Map ( Map )
 
 data Card
     = Card
