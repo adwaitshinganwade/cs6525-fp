@@ -64,37 +64,51 @@ data State = State
 -- is a random number in [0, coins player]
 getInvestment :: State -> Int -> Int
 getInvestment state randomInvestment =
-  -- If the total attacking potential is less than that of the total 
-  -- attacking potential of half the remaining players, invest all coins
+  -- If this player has a higher attacking potential than the total defense
+  -- potential of half the remaining players, then find the smallest amount
+  -- of coins that can let this player attack. If there aren't enough coins
+  -- invest all coins. Else, invest some random amount. 
   let
-    allButThisPlayer = [totalAttackingPotential p | p <- players state,  p /= thisPlayer]
-    strongerThanPlayer = numberOfStrongerOpponents (totalAttackingPotential thisPlayer) allButThisPlayer
-  in if strongerThanPlayer >= length allButThisPlayer `div` 2
-    then coins thisPlayer
+    totalDefenseOfOpponents = [totalPotential defense p | p <- players state,  p /= thisPlayer]
+    strongerThanPlayer = numberOfStrongerOpponents (totalPotential attack thisPlayer) totalDefenseOfOpponents
+    coinsWithOpponents = [coins p | p <- players state, p /= thisPlayer]
+    coinsWithPlayer = coins thisPlayer
+    maximumCoinsWithOpponent = maximum coinsWithOpponents
+    hasMoreCoinsThanPlayer = numberOfStrongerOpponents (coins thisPlayer) coinsWithOpponents
+  in if strongerThanPlayer >= length totalDefenseOfOpponents `div` 2 && hasMoreCoinsThanPlayer >= length totalDefenseOfOpponents `div` 2 then
+      let
+        smartInvestment = if min maximumCoinsWithOpponent coinsWithPlayer < coinsWithPlayer 
+          then maximumCoinsWithOpponent + 1
+          else coinsWithPlayer
+      in smartInvestment
     else randomInvestment
     where thisPlayer = players state !! player state
 
-totalAttackingPotential :: Player -> Int
-totalAttackingPotential player =
-  sum [attack (referenceCards Map.! (name :: Card -> String) card) | card <- cards player]
+totalPotential :: (Card -> Int) -> Player -> Int
+totalPotential potentialOf player =
+  sum [potentialOf (referenceCards Map.! (name :: Card -> String) card) | card <- cards player]
 
 
 numberOfStrongerOpponents :: (Foldable t, Ord a, Num b) => a -> t a -> b
 numberOfStrongerOpponents strongerThan = foldl (\x y -> if y > strongerThan then x+1 else x) 0
 
--- Chooses the strongest untapped card
-chooseAttackingCard :: State -> Int
-chooseAttackingCard state =
+-- Chooses the strongest untapped card based on attacking or defending capacity. We assume
+-- that this choice will be made only if the player has a choice (there is least one
+-- untapped card with the player). If attacking is true, the attacking capacity is considered.
+-- Else, the defending capacity is considered.
+nextAttackMove :: State -> Bool -> Int
+nextAttackMove state attacking =
   let playerCards = cards thisPlayer
-      strongestCard = getStrongestAttackingCard playerCards 
+      strongestCard = if attacking 
+        then getStrongestCard attack playerCards 
+        else getStrongestCard defense playerCards 
       in strongestCard
       where thisPlayer = players state !! player state
 
 
--- Get strongest attacking card by index (maybe later balance attack and defense?)
-getStrongestAttackingCard :: [Card] -> Int
-getStrongestAttackingCard deck =
+getStrongestCard :: (Card -> Int) -> [Card] -> Int
+getStrongestCard strength deck =
   let enumeratedDeck = zip [0..(length deck - 1)] deck
   in
   -- No Wall of Wealth card yet, hence based around uses == 0
-  fst (foldl (\x y -> if uses (snd y) == 0 && attack (snd y) > attack (snd x) then y else x) (0, head deck) enumeratedDeck) 
+  fst (foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x) then y else x) (0, head deck) enumeratedDeck) 
