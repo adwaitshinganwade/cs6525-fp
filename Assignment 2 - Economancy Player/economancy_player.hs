@@ -1,8 +1,9 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-import Data.Map (Map, fromList)
+import Data.Map (Map, fromList, elems)
 import qualified Data.Map as Map
+import EconomancyEntites
 
 referenceCards :: Map String Card =
   Map.fromList [
@@ -17,57 +18,20 @@ referenceCards :: Map String Card =
     ("Gold Fish", Card{name="Gold Fish", uses=0, attack=1, defense=2, victory_points=0, cost=0})
   ]
 
+currentPlayer :: State -> Player
+currentPlayer state = players state !! player state
 
-data Card
-    = Card
-    {
-        name :: String,
-        uses :: Int,
-        attack :: Int,
-        defense :: Int,
-        victory_points :: Int,
-        cost :: Int
-    }
-    deriving (Show, Eq)
-
-data Player = Player
-  { coins :: Int,
-    buys :: Int,
-    cards :: [Card]
-  }
-  deriving (Show, Eq)
-
-data Phase
-  = InvestingOrBuy {phaseName :: String}
-    | Attacking
-      { phaseName :: String,
-        attacker :: Int,
-        attacker_card :: Maybe Int
-      }
-    | End {
-        phaseName :: String,
-        winner :: Maybe Int}
-    deriving (Show)
-
-data State = State
-  { day :: Int,
-    phase :: Phase,
-    shop :: Map String Int,
-    players :: [Player],
-    player :: Int
-  }
-  deriving (Show)
-
-
--- Gets the amount of coins the player wishes to invest, which will be
--- between 0 and the maximum coins the player has. The second paramter
--- is a random number in [0, coins player]
+{-|
+Gets the amount of coins the player wishes to invest, which will be between 0 and
+the maximum coins the player has. The second paramter is a random number
+in [0, coins player]. If this player has a higher attacking potential than the 
+total defense potential of half the remaining players, then find the smallest number
+of coins that can let this player attack. If there aren't enough coins, invest all 
+coins. Else, invest some random amount. 
+-}
 getInvestment :: State -> Int -> Int
 getInvestment state randomInvestment =
-  -- If this player has a higher attacking potential than the total defense
-  -- potential of half the remaining players, then find the smallest amount
-  -- of coins that can let this player attack. If there aren't enough coins
-  -- invest all coins. Else, invest some random amount. 
+  -- 
   let
     totalDefenseOfOpponents = [totalPotential defense p | p <- players state,  p /= thisPlayer]
     strongerThanPlayer = numberOfStrongerOpponents (totalPotential attack thisPlayer) totalDefenseOfOpponents
@@ -82,7 +46,7 @@ getInvestment state randomInvestment =
           else coinsWithPlayer
       in smartInvestment
     else randomInvestment
-    where thisPlayer = players state !! player state
+    where thisPlayer = currentPlayer state
 
 totalPotential :: (Card -> Int) -> Player -> Int
 totalPotential potentialOf player =
@@ -92,10 +56,12 @@ totalPotential potentialOf player =
 numberOfStrongerOpponents :: (Foldable t, Ord a, Num b) => a -> t a -> b
 numberOfStrongerOpponents strongerThan = foldl (\x y -> if y > strongerThan then x+1 else x) 0
 
--- Chooses the strongest untapped card based on attacking or defending capacity. We assume
--- that this choice will be made only if the player has a choice (there is least one
--- untapped card with the player). If attacking is true, the attacking capacity is considered.
--- Else, the defending capacity is considered.
+{-|
+Chooses the strongest untapped card based on attacking or defending capacity. We assume
+that this choice will be made only if the player has a choice (there is least one
+untapped card with the player). If attacking is true, the attacking capacity is considered.
+Else, the defending capacity is considered.
+-}
 nextAttackMove :: State -> Bool -> Int
 nextAttackMove state attacking =
   let playerCards = cards thisPlayer
@@ -103,7 +69,7 @@ nextAttackMove state attacking =
         then getStrongestCard attack playerCards 
         else getStrongestCard defense playerCards 
       in strongestCard
-      where thisPlayer = players state !! player state
+      where thisPlayer = currentPlayer state
 
 
 getStrongestCard :: (Card -> Int) -> [Card] -> Int
@@ -111,4 +77,34 @@ getStrongestCard strength deck =
   let enumeratedDeck = zip [0..(length deck - 1)] deck
   in
   -- No Wall of Wealth card yet, hence based around uses == 0
-  fst (foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x) then y else x) (0, head deck) enumeratedDeck) 
+  fst (
+    foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x) 
+    then y 
+    else x) 
+    (0, head deck) 
+    enumeratedDeck
+    ) 
+
+{-|
+Randomly choose a card to purchase based on the random number randomDecisionFlag.
+Choose to either pass or select a card with the highest attack or denfense value.
+-}
+makeAPurchase :: State -> Int -> String
+makeAPurchase state randomDecisionFlag =
+  let availableOptions = getViableOptions inventory coinBalance
+  in if coinBalance == 0
+    then "Pass"
+    else 
+      case randomDecisionFlag `mod` 5 of
+        0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions)
+        2 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
+        _ -> "Pass"
+  where thisPlayer = currentPlayer state
+        inventory = shop state
+        coinBalance = coins thisPlayer
+          
+
+getViableOptions :: Map String Int -> Int -> [Card]
+getViableOptions inventory coinBalance =
+  availableOptions
+    where availableOptions = [c | c <- elems referenceCards, (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
