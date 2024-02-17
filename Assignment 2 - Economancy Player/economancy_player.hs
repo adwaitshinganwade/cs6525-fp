@@ -5,6 +5,7 @@ import Data.Map (Map, fromList, elems)
 import qualified Data.Map as Map
 import Data.ByteString (getLine)
 import EconomancyEntites(Card(..), Player(..), State(..), Phase(..))
+import Data.Time.Clock.POSIX
 
 referenceCards :: Map String Card =
   Map.fromList [
@@ -13,7 +14,7 @@ referenceCards :: Map String Card =
     ("Incantation", Card{name="Incantation", uses=0, attack=1, defense=1, victory_points=3, cost=4}),
     ("Worker", Card{name="Worker", uses=0, attack=1, defense=2, victory_points=0, cost=1}),
     ("Bubble", Card{name="Bubble", uses=0, attack=9, defense=2, victory_points=0, cost=2}),
-    ("Magic Bean Stock", Card{name="Sorcerer's Stipend", uses=0, attack=0, defense=0, victory_points=0, cost=0}), -- Cannot attack
+    ("Magic Bean Stock", Card{name="Sorcerer's Stipend", uses=0, attack=1, defense=1, victory_points=0, cost=0}), -- Cannot attack
     ("Ghost", Card{name="Ghost", uses=0, attack=3, defense=2, victory_points=0, cost=2}),
     ("Senior Worker", Card{name="Senior Worker", uses=0, attack=2, defense=2, victory_points=0, cost=2}),
     ("Gold Fish", Card{name="Gold Fish", uses=0, attack=1, defense=2, victory_points=0, cost=0})
@@ -24,11 +25,11 @@ currentPlayer state = players state !! player state
 
 {-|
 Gets the amount of coins the player wishes to invest, which will be between 0 and
-the maximum coins the player has. The second paramter is a random number
-in [0, coins player]. If this player has a higher attacking potential than the 
-total defense potential of half the remaining players, then find the smallest number
-of coins that can let this player attack. If there aren't enough coins, invest all 
-coins. Else, invest some random amount. 
+the maximum coins the player has. The second paramter is a random number. 
+If this player has a higher attacking potential than the total defense potential
+of half the remaining players, then find the smallest number of coins that can
+let this player attack. If there aren't enough coins, invest all coins. Else, invest 
+(random number) mod (number of coins with player + 1). 
 -}
 getInvestment :: State -> Int -> Int
 getInvestment state randomInvestment =
@@ -40,13 +41,13 @@ getInvestment state randomInvestment =
     coinsWithPlayer = coins thisPlayer
     maximumCoinsWithOpponent = maximum coinsWithOpponents
     hasMoreCoinsThanPlayer = numberOfStrongerOpponents (coins thisPlayer) coinsWithOpponents
-  in if strongerThanPlayer >= length totalDefenseOfOpponents `div` 2 && hasMoreCoinsThanPlayer >= length totalDefenseOfOpponents `div` 2 then
+  in if strongerThanPlayer < length totalDefenseOfOpponents `div` 2 && hasMoreCoinsThanPlayer < length totalDefenseOfOpponents `div` 2 then
       let
         smartInvestment = if min maximumCoinsWithOpponent coinsWithPlayer < coinsWithPlayer
           then maximumCoinsWithOpponent + 1
           else coinsWithPlayer
       in smartInvestment
-    else randomInvestment
+    else randomInvestment `mod` (coinsWithPlayer + 1)
     where thisPlayer = currentPlayer state
 
 totalPotential :: (Card -> Int) -> Player -> Int
@@ -98,7 +99,9 @@ makeAPurchase state randomDecisionFlag =
     else
       case randomDecisionFlag `mod` 5 of
         0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions)
-        2 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
+        1 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
+        2 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions)
+        3 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
         _ -> "Pass"
   where thisPlayer = currentPlayer state
         inventory = shop state
@@ -108,19 +111,30 @@ makeAPurchase state randomDecisionFlag =
 getViableOptions :: Map String Int -> Int -> [Card]
 getViableOptions inventory coinBalance =
   availableOptions
-    where availableOptions = [c | c <- elems referenceCards, (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
+    where availableOptions = [c | c <- elems referenceCards, Map.member ((name :: Card -> String) c) inventory, 
+            (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
 
 main = do
   Data.ByteString.getLine
+  randomNumber <- round <$> getPOSIXTime
   -- parse input into JSON, using a placeholder for now
   let state = State{day=0,
-    phase=InvestingOrBuy{phaseName="investing"},
-    shop=Map.fromList [("Board of Monopoly", 2)],
-    players=[Player{coins=1, buys=1, cards=[referenceCards Map.! "Sorcerer's Stipend"]}],
+    phase=InvestingOrBuy{phaseName="buy"},
+    shop=Map.fromList [("Sorcerer's Stipend", 2),
+      ("Board of Monopoly",1 ),
+      ("Incantation", 3),
+      ("Worker", 4),
+      ("Bubble", 1),
+      ("Magic Bean Stock", 5), -- Cannot attack
+      ("Ghost", 1),
+      ("Senior Worker", 2),
+      ("Gold Fish", 0)],
+    players=[Player{coins=10, buys=1, cards=[referenceCards Map.! "Ghost", referenceCards Map.! "Sorcerer's Stipend", referenceCards Map.! "Board of Monopoly"]},
+    Player{coins=7, buys=2, cards=[ referenceCards Map.! "Sorcerer's Stipend", referenceCards Map.! "Magic Bean Stock"]}],
     player=0}
   case phase state of
-    currentPhase | InvestingOrBuy -> if phaseName currentPhase == "investing"
-      then getInvestment state 1
-      else makeAPurchase state 55
-    currentPhase | Attacking -> nextAttackMove state (player == attacker)
-    _ | End -> show state
+    InvestingOrBuy phaseName -> if phaseName  == "investing"
+      then putStr (show (getInvestment state randomNumber))
+      else putStr (show (makeAPurchase state randomNumber))
+    Attacking phaseName attacker attacker_card -> putStr (show (nextAttackMove state (player state == attacker)))
+    End phaseName winner -> putStr (show winner)
