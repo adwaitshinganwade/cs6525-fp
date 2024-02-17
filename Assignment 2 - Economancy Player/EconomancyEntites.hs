@@ -1,11 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module EconomancyEntites where
 import Data.Map ( Map )
-import GHC.Generics
-import qualified Data.Aeson as JSON;
-import Data.Aeson (FromJSON(..), ToJSON(..), (.:)) 
-import qualified Data.ByteString.Char8 as B
-import Data.ByteString(ByteString(..))
+import JSONEntities
+import Data.Aeson(fromJSON)
 
 data Card
     = Card
@@ -17,30 +14,11 @@ data Card
         victory_points :: Int,
         cost :: Int
     }
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq)
 
-instance FromJSON Card where
-  parseJSON = JSON.withObject "Card" $ \o -> do
-    cardNameString <- o .: "name"
-    cardUsesString <- o .: "uses"
-    let cardName :: String = read cardNameString
-    let cardUses :: Int = read cardUsesString
-    pure Card{name=cardName, uses=cardUses, attack=0, defense=0, victory_points=0, cost=0}
-
-
-parseCard :: ByteString -> IO Card
-parseCard bs = do
-  case JSON.decodeStrict bs of 
-    Nothing -> error "Nothing"
-    Just a -> return a
-
-readAndParse :: IO ()
-readAndParse = do
-  bs <- B.getLine
-  parsedCard <- (parseCard bs)
-  putStrLn (name parsedCard)
-     
-
+getCardFromJSON :: JSONCard -> Card
+getCardFromJSON jsonCard =
+  Card (cardName jsonCard) (cardUses jsonCard) 0 0 0 0
 
 data Player = Player
   { coins :: Int,
@@ -48,6 +26,10 @@ data Player = Player
     cards :: [Card]
   }
   deriving (Show, Eq)
+
+getPlayerFromJSON :: JSONPlayer -> Player
+getPlayerFromJSON jsonPlayer =
+  Player (playerCoins jsonPlayer) (playerBuys jsonPlayer) [getCardFromJSON c | c <- playerCards jsonPlayer]
 
 data Phase
   = InvestingOrBuy {phaseName :: String}
@@ -60,6 +42,17 @@ data Phase
         phaseName :: String,
         winner :: Maybe Int}
     deriving (Show)
+
+-- getPhaseFromJSON :: JSONPhase -> Phase
+-- getPhaseFromJSON jsonPhase =
+--   case JSONEntities.phaseName jsonPhase of
+--     "investing" -> InvestingOrBuy "investing"
+--     "buy" -> InvestingOrBuy "buy"
+--     "attacking" -> case phaseAttacker_card jsonPhase of
+--       Just a -> Attacking "attacking" (phaseAttacker jsonPhase) ((Data.Aeson.fromJSON a) :: Int)
+
+
+
 
 data State = State
   { day :: Int,
