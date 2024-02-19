@@ -21,3 +21,11 @@ The player chooses to invest based on a process that combines randomness with a 
 
 ## Running the Player ##
 The player has been compiled and tested on Windows. The player can be run by simply running ```EconomancyPlayer.exe``` in a Windows shell. The player accepts a JSON state (based on the specification) of the game from standard input. On each input, it outputs its decision as a singleton JSON array to standard output. It then waits for the next state. The player exits when it is passed a state with the ```end``` phase or when it does not recognize a phase.
+
+## References ##
+1. [Learn You a Haskell for Great Good!](https://learnyouahaskell.com/chapters)
+2. [Hackage](https://hackage.haskell.org/) documentation for standard library functions
+3. JSON in Haskell:
+    - https://williamyaoh.com/posts/2019-10-19-a-cheatsheet-to-json-handling.html
+    - https://www.youtube.com/watch?v=IMlDZNWTurw
+
