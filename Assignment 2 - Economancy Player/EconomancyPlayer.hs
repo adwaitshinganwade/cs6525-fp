@@ -3,9 +3,14 @@
 
 import qualified Data.Map as Map
 import Data.Map (Map, fromList, elems)
-import Data.ByteString (getLine)
-import EconomancyEntites(Card(..), Player(..), State(..), Phase(..), referenceCards)
+import Data.ByteString (getLine, fromStrict)
+import EconomancyEntites(Card(..), Player(..), State(..), Phase(..), referenceCards, getStateFromJSON)
 import Data.Time.Clock.POSIX
+import qualified Data.Aeson as JSON
+import JSONEntities (JSONState)
+import System.Exit (exitSuccess, ExitCode (ExitSuccess), exitWith)
+
+
 currentPlayer :: State -> Player
 currentPlayer state = players state !! player state
 
@@ -54,22 +59,24 @@ nextAttackMove :: State -> Bool -> Int
 nextAttackMove state attacking =
   let playerCards = cards thisPlayer
       strongestCard = if attacking
-        then getStrongestCard attack playerCards
-        else getStrongestCard defense playerCards
+        then getStrongestCard attack playerCards True
+        else getStrongestCard defense playerCards False
       in strongestCard
       where thisPlayer = currentPlayer state
 
 
-getStrongestCard :: (Card -> Int) -> [Card] -> Int
-getStrongestCard strength deck =
-  let enumeratedDeck = zip [0..(length deck - 1)] deck
+getStrongestCard :: (Card -> Int) -> [Card] -> Bool -> Int
+getStrongestCard strength deck forAttack =
+  -- Don't consider the Bubble card while choosing for the attack phase
+  let usableDeck = if forAttack then [c | c <- deck, (name :: Card -> String) c /= "Bubble"] else deck
+      enumeratedDeck = zip [0..(length usableDeck - 1)] usableDeck
   in
   -- No Wall of Wealth card yet, hence based around uses == 0
   fst (
     foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x)
     then y
     else x)
-    (0, head deck)
+    (0, head usableDeck)
     enumeratedDeck
     )
 
@@ -84,10 +91,10 @@ makeAPurchase state randomDecisionFlag =
     then "Pass"
     else
       case randomDecisionFlag `mod` 5 of
-        0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions)
-        1 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
-        2 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions)
-        3 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions)
+        0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
+        1 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
+        2 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
+        3 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
         _ -> "Pass"
   where thisPlayer = currentPlayer state
         inventory = shop state
@@ -97,30 +104,18 @@ makeAPurchase state randomDecisionFlag =
 getViableOptions :: Map String Int -> Int -> [Card]
 getViableOptions inventory coinBalance =
   availableOptions
-    where availableOptions = [c | c <- elems referenceCards, Map.member ((name :: Card -> String) c) inventory, 
+    where availableOptions = [c | c <- elems referenceCards, Map.member ((name :: Card -> String) c) inventory,
             (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
 
 main = do
-  Data.ByteString.getLine
+  input <- Data.ByteString.getLine
+  let gameState = Data.ByteString.fromStrict input
   randomNumber <- round <$> getPOSIXTime
-  -- parse input into JSON, using a placeholder for now
-  let state = State{day=0,
-    phase=InvestingOrBuy{phaseName="buy"},
-    shop=Map.fromList [("Sorcerer's Stipend", 2),
-      ("Board of Monopoly",1 ),
-      ("Incantation", 3),
-      ("Worker", 4),
-      ("Bubble", 1),
-      ("Magic Bean Stock", 5), -- Cannot attack
-      ("Ghost", 1),
-      ("Senior Worker", 2),
-      ("Gold Fish", 0)],
-    players=[Player{coins=10, buys=1, cards=[referenceCards Map.! "Ghost", referenceCards Map.! "Sorcerer's Stipend", referenceCards Map.! "Board of Monopoly"]},
-    Player{coins=7, buys=2, cards=[ referenceCards Map.! "Sorcerer's Stipend", referenceCards Map.! "Magic Bean Stock"]}],
-    player=0}
+  let jsonState = JSON.decode gameState :: Maybe JSONState
+  let state = getStateFromJSON jsonState
   case phase state of
     InvestingOrBuy phaseName -> if phaseName  == "investing"
-      then putStr (show (getInvestment state randomNumber))
-      else putStr (show (makeAPurchase state randomNumber))
-    Attacking phaseName attacker attacker_card -> putStr (show (nextAttackMove state (player state == attacker)))
-    End phaseName winner -> putStr (show winner)
+      then putStrLn (show [getInvestment state randomNumber]) >> main
+      else putStrLn (show [makeAPurchase state randomNumber]) >> main
+    Attacking phaseName attacker attacker_card -> putStrLn (show [nextAttackMove state (player state == attacker)]) >> main
+    End phaseName winner -> exitSuccess

@@ -45,7 +45,7 @@ data JSONPhase = JSONPhase {
     phaseName :: String,
     phaseAttacker :: Maybe Int,
     phaseAttacker_card :: Maybe Value,
-    winner :: Maybe String 
+    phaseWinner :: Maybe Int 
 } deriving (Generic, Show)
 
 instance FromJSON JSONPhase where
@@ -56,7 +56,7 @@ data JSONState = JSONState {
     phase :: JSONPhase,
     shop :: Value,
     players :: [JSONPlayer],
-    player :: Int
+    player :: Maybe Int
 } deriving (Generic, Show)
 
 instance FromJSON JSONState where 

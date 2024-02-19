@@ -19,7 +19,7 @@ referenceCards :: Map String Card =
     ("Magic Bean Stock", Card{name="Sorcerer's Stipend", uses=0, attack=1, defense=1, victory_points=0, cost=0}),
     ("Ghost", Card{name="Ghost", uses=0, attack=3, defense=2, victory_points=0, cost=2}),
     ("Senior Worker", Card{name="Senior Worker", uses=0, attack=2, defense=2, victory_points=0, cost=2}),
-    ("Gold Fish", Card{name="Gold Fish", uses=0, attack=1, defense=2, victory_points=0, cost=0})
+    ("Gold Fish", Card{name="Gold Fish", uses=0, attack=1, defense=2, victory_points=0, cost=3})
   ]
 
 data Card
@@ -77,6 +77,9 @@ getPhaseFromJSON jsonPhase =
             in Attacking "attacking" attackerId attackerCard
           Bool b -> let (Just attackerId) = JSONEntities.phaseAttacker jsonPhase
             in Attacking "attacking" attackerId Nothing
+    "end" -> End "end" (JSONEntities.phaseWinner jsonPhase)
+    -- Exit if phase is unknown
+    _ -> End "end" (Just (-1))
 
 
 data State = State
@@ -98,6 +101,8 @@ getStateFromJSON maybeJsonState =
         (getPhaseFromJSON (JSONEntities.phase jsonState))
         shopFromJSON
         [getPlayerFromJSON p | p <- JSONEntities.players jsonState]
-        (JSONEntities.player jsonState)
+        (case JSONEntities.player jsonState of
+          Just n -> n
+          Nothing -> -1)
     Nothing -> error "Could not parse state from JSON"
 
