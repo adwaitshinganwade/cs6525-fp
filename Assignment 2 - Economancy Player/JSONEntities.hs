@@ -3,17 +3,26 @@
 module JSONEntities where
 import GHC.Generics
 import Data.Aeson ( FromJSON, Value)
-import qualified Data.Aeson as Aeson
 import qualified Data.Aeson as JSON
 import GHC.Desugar ((>>>))
 import Data.Char (toLower)
+import Data.Aeson.Types (parseMaybe)
 
-jsonOptions :: String -> Aeson.Options
+{-|
+Some of the types below use prefixed field names to
+avoid clashes with their non-JSON counterparts defined
+in EconomancyEntities. This function removes the specified
+prefix from each field of a givem type and lowercases the
+first letter of the result. This ensure an exact match
+between the JSON fields and the type fields used for
+reflection
+-}
+jsonOptions :: String -> JSON.Options
 jsonOptions fieldPrefix =
     let prefixChars = length fieldPrefix
         toLowercase(c : cs) = toLower c : cs
         toLowercase [] = []
-        in Aeson.defaultOptions {JSON.fieldLabelModifier = drop prefixChars >>> toLowercase}
+        in JSON.defaultOptions {JSON.fieldLabelModifier = drop prefixChars >>> toLowercase}
 
 data JSONCard = JSONCard {
     cardName :: String,
@@ -34,7 +43,7 @@ instance FromJSON JSONPlayer where
 
 data JSONPhase = JSONPhase {
     phaseName :: String,
-    phaseAttacker :: Int,
+    phaseAttacker :: Maybe Int,
     phaseAttacker_card :: Maybe Value,
     winner :: Maybe String 
 } deriving (Generic, Show)
@@ -50,4 +59,11 @@ data JSONState = JSONState {
     player :: Int
 } deriving (Generic, Show)
 
-instance FromJSON JSONState
+instance FromJSON JSONState where 
+    parseJSON = JSON.genericParseJSON $ jsonOptions ""
+
+{-|
+Transforms a plain JSON value into the required value
+-}
+fromJSONValue :: FromJSON a => Value -> Maybe a
+fromJSONValue = parseMaybe JSON.parseJSON
