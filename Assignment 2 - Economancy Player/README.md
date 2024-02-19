@@ -20,7 +20,13 @@ Note:
 The player chooses to invest based on a process that combines randomness with a set of fixed decisions. Based on a random number, the player chooses to either purchase the strongest affordable attacking card, the strongest affordable defending card, or to pass.
 
 ## Running the Player ##
-The player has been compiled and tested on Windows. The player can be run by simply running ```EconomancyPlayer.exe``` in a Windows shell. The player accepts a JSON state (based on the specification) of the game from standard input. On each input, it outputs its decision as a singleton JSON array to standard output. It then waits for the next state. The player exits when it is passed a state with the ```end``` phase or when it does not recognize a phase.
+The player has been compiled and tested on Windows and Ubuntu. 
+
+The Windows player can be run by simply running ```EconomancyPlayer.exe``` in a Windows shell. 
+
+The Linux player can be run as follows in a Linux terminal: ```./EconomancyPlayer```
+
+ The player accepts a JSON state (based on the specification) of the game from standard input. On each input, it outputs its decision as a singleton JSON array to standard output. It then waits for the next state. The player exits when it is passed a state with the ```end``` phase or when it does not recognize a phase.
 
 ## References ##
 1. [Learn You a Haskell for Great Good!](https://learnyouahaskell.com/chapters)
