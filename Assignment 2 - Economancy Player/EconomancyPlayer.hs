@@ -9,6 +9,7 @@ import Data.Time.Clock.POSIX
 import qualified Data.Aeson as JSON
 import JSONEntities (JSONState)
 import System.Exit (exitSuccess, ExitCode (ExitSuccess), exitWith)
+import System.IO ( stdout, hFlush )
 
 
 currentPlayer :: State -> Player
@@ -87,7 +88,7 @@ Choose to either pass or select a card with the highest attack or denfense value
 makeAPurchase :: State -> Int -> String
 makeAPurchase state randomDecisionFlag =
   let availableOptions = getViableOptions inventory coinBalance
-  in if coinBalance == 0
+  in if coinBalance == 0 || null availableOptions
     then "Pass"
     else
       case randomDecisionFlag `mod` 5 of
@@ -115,7 +116,7 @@ main = do
   let state = getStateFromJSON jsonState
   case phase state of
     InvestingOrBuy phaseName -> if phaseName  == "investing"
-      then putStrLn (show [getInvestment state randomNumber]) >> main
-      else putStrLn (show [makeAPurchase state randomNumber]) >> main
+      then putStrLn (show [getInvestment state randomNumber]) >> hFlush stdout >> main
+      else putStrLn (show [makeAPurchase state randomNumber]) >> hFlush stdout >>main
     Attacking phaseName attacker attacker_card -> putStrLn (show [nextAttackMove state (player state == attacker)]) >> main
     End phaseName winner -> exitSuccess
