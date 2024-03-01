@@ -9,17 +9,27 @@ import Data.Aeson ( fromJSON, Value, Value(Bool) )
 import Data.Aeson.Decoding.Tokens (Number)
 import Data.Aeson.Types (Value(Number))
 
+{- 
+The dayEarnings field captures the coins that a card can earn purely based on the current day. Special
+earnings (such as those provided by Magic Bean Stock), are modelled separately 
+-}
+
 referenceCards :: Map String Card =
   Map.fromList [
-    ("Sorcerer's Stipend", Card{name="Sorcerer's Stipend", uses=0, attack=0, defense=0, victory_points=0, cost=0}),
-    ("Board of Monopoly", Card{name="Board of Monopoly", uses=0, attack=1, defense=1, victory_points=1, cost=2}),
-    ("Incantation", Card{name="Incantation", uses=0, attack=1, defense=1, victory_points=3, cost=4}),
-    ("Worker", Card{name="Worker", uses=0, attack=1, defense=2, victory_points=0, cost=1}),
-    ("Bubble", Card{name="Bubble", uses=0, attack=9, defense=2, victory_points=0, cost=2}),
-    ("Magic Bean Stock", Card{name="Sorcerer's Stipend", uses=0, attack=1, defense=1, victory_points=0, cost=0}),
-    ("Ghost", Card{name="Ghost", uses=0, attack=3, defense=2, victory_points=0, cost=2}),
-    ("Senior Worker", Card{name="Senior Worker", uses=0, attack=2, defense=2, victory_points=0, cost=2}),
-    ("Gold Fish", Card{name="Gold Fish", uses=0, attack=1, defense=2, victory_points=0, cost=3})
+    ("Sorcerer's Stipend", Card{name="Sorcerer's Stipend", uses=0, attack=0, defense=0, victory_points=0, cost=0, dayEarnings=[1, 1, 1]}),
+    ("Board of Monopoly", Card{name="Board of Monopoly", uses=0, attack=1, defense=1, victory_points=1, cost=2, dayEarnings=[0, 0, 0]}),
+    ("Incantation", Card{name="Incantation", uses=0, attack=1, defense=1, victory_points=3, cost=4, dayEarnings=[0, 0, 0]}),
+    ("Worker", Card{name="Worker", uses=0, attack=1, defense=2, victory_points=0, cost=1, dayEarnings=[0, 1, 1]}),
+    ("Bubble", Card{name="Bubble", uses=0, attack=9, defense=2, victory_points=0, cost=2, dayEarnings=[0, 0, 0]}),
+    ("Magic Bean Stock", Card{name="Sorcerer's Stipend", uses=0, attack=1, defense=1, victory_points=0, cost=1, dayEarnings=[0, 0, 0]}),
+    ("Ghost", Card{name="Ghost", uses=0, attack=3, defense=2, victory_points=0, cost=2, dayEarnings=[0, 0, 1]}),
+    ("Senior Worker", Card{name="Senior Worker", uses=0, attack=2, defense=2, victory_points=0, cost=2, dayEarnings=[1, 1, 1]}),
+    ("Gold Fish", Card{name="Gold Fish", uses=0, attack=1, defense=2, victory_points=0, cost=3, dayEarnings=[0, 0, 4]}),
+    ("Wall of Wealth", Card{name="Wall of Wealth", uses=0, attack=1, defense=2, victory_points=0, cost=1, dayEarnings=[1, 0, 0]}),
+    ("Apprentice", Card{name="Apprentice", uses=0, attack=2, defense=1, victory_points=0, cost=3, dayEarnings=[1, 1, 0]}),
+    ("Thug", Card{name="Thug", uses=0, attack=4, defense=4, victory_points=0, cost=3, dayEarnings=[0, 1, 0]}),
+    ("Shield of Greed", Card{name="Shield of Greed", uses=0, attack=2, defense=7, victory_points=0, cost=4, dayEarnings=[0, 0, 0]}),
+    ("Golem", Card{name="Golem", uses=0, attack=7, defense=7, victory_points=0, cost=5, dayEarnings=[0, 0, 0]})
   ]
 
 data Card
@@ -30,7 +40,8 @@ data Card
         attack :: Int,
         defense :: Int,
         victory_points :: Int,
-        cost :: Int
+        cost :: Int,
+        dayEarnings :: [Int]
     }
     deriving (Show, Eq)
 
@@ -39,7 +50,9 @@ getCardFromJSON jsonCard =
   let nameOfCard = cardName jsonCard
       thisCard = referenceCards Map.! nameOfCard 
   in
-  Card nameOfCard (cardUses jsonCard) (attack thisCard) (defense thisCard) (victory_points thisCard) (cost thisCard)
+  Card nameOfCard (cardUses jsonCard) (attack thisCard) (defense thisCard) (victory_points thisCard) (cost thisCard) [0, 0, 0]
+
+  {- TODO: A function that returns earnings, given the card and the current day-}
 
 data Player = Player
   { coins :: Int,

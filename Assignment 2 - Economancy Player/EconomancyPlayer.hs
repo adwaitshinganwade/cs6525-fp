@@ -15,6 +15,16 @@ import System.IO ( stdout, hFlush )
 currentPlayer :: State -> Player
 currentPlayer state = players state !! player state
 
+{-
+TODO's
+Wall of Wealth --> can defend twice per turn
+Apprentice --> Third day earns a buy, but no coins (needed?)
+Shield of Greed --> Earns 1 coin if the card was used to defend, even if it loses
+Magic Bean Stock --> 1 coins for every 3 coins
+Sorcerer's stipend --> 1 coin earned every day
+-}
+
+
 {-|
 Gets the amount of coins the player wishes to invest, which will be between 0 and
 the maximum coins the player has. The second paramter is a random number. 
