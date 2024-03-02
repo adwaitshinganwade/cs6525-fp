@@ -1,19 +1,19 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
+
+
 import qualified Data.Map as Map
 import Data.Map (Map, fromList, elems)
 import Data.ByteString (getLine, fromStrict)
-import EconomancyEntites(Card(..), Player(..), State(..), Phase(..), referenceCards, getStateFromJSON)
+import EconomancyEntites(Card(..), Player(..), State(..), Phase(..), referenceCards, getStateFromJSON, Day, Coins, currentPlayer, cardEarnings, cardEarnings)
 import Data.Time.Clock.POSIX
 import qualified Data.Aeson as JSON
-import JSONEntities (JSONState)
+import qualified JSONEntities (JSONState (day))
 import System.Exit (exitSuccess, ExitCode (ExitSuccess), exitWith)
 import System.IO ( stdout, hFlush )
-
-
-currentPlayer :: State -> Player
-currentPlayer state = players state !! player state
+import Data.Foldable (maximumBy)
+import Data.Ord (comparing)
 
 {-
 TODO's
@@ -79,10 +79,10 @@ nextAttackMove state attacking =
 getStrongestCard :: (Card -> Int) -> [Card] -> Bool -> Int
 getStrongestCard strength deck forAttack =
   -- Don't consider the Bubble card while choosing for the attack phase
-  let usableDeck = if forAttack then [c | c <- deck, (name :: Card -> String) c /= "Bubble"] else deck
+  let usableDeck = if forAttack then [c | c <- deck, (name :: Card -> String) c /= "Bubble"]
+      else deck
       enumeratedDeck = zip [0..(length usableDeck - 1)] usableDeck
   in
-  -- No Wall of Wealth card yet, hence based around uses == 0
   fst (
     foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x)
     then y
@@ -90,6 +90,18 @@ getStrongestCard strength deck forAttack =
     (0, head usableDeck)
     enumeratedDeck
     )
+
+{-
+Finds the card among those that the player can afford 
+which gives the highest income on the next day
+-}
+getCardWithHighestNextDayIncome :: State -> [Card] -> Int
+getCardWithHighestNextDayIncome state availableOptions =
+  let
+    nextDay = (day :: State -> Day) state `mod` 2
+    earnings = [cardEarnings state card nextDay | card <- availableOptions]
+  in snd $ maximumBy (comparing fst) (zip earnings [0..])
+
 
 {-|
 Randomly choose a card to purchase based on the random number randomDecisionFlag.
@@ -104,6 +116,7 @@ makeAPurchase state randomDecisionFlag =
       case randomDecisionFlag `mod` 5 of
         0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
         1 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
+        -- 2 -> (name :: Card -> String) (availableOptions !! getCardWithHighestNextDayIncome state availableOptions)
         2 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
         3 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
         _ -> "Pass"
@@ -118,15 +131,17 @@ getViableOptions inventory coinBalance =
     where availableOptions = [c | c <- elems referenceCards, Map.member ((name :: Card -> String) c) inventory,
             (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
 
+
+
 main = do
   input <- Data.ByteString.getLine
   let gameState = Data.ByteString.fromStrict input
   randomNumber <- round <$> getPOSIXTime
-  let jsonState = JSON.decode gameState :: Maybe JSONState
+  let jsonState = JSON.decode gameState :: Maybe JSONEntities.JSONState
   let state = getStateFromJSON jsonState
   case phase state of
     InvestingOrBuy phaseName -> if phaseName  == "investing"
       then putStrLn (show [getInvestment state randomNumber]) >> hFlush stdout >> main
-      else putStrLn (show [makeAPurchase state randomNumber]) >> hFlush stdout >>main
-    Attacking phaseName attacker attacker_card -> putStrLn (show [nextAttackMove state (player state == attacker)]) >> main
+      else putStrLn (show [makeAPurchase state randomNumber]) >> hFlush stdout >> main
+    Attacking phaseName attacker attacker_card -> putStrLn (show [nextAttackMove state (player state == attacker)]) >> hFlush stdout >> main
     End phaseName winner -> exitSuccess
