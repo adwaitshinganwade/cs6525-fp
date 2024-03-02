@@ -1,19 +1,21 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
+
+
 import qualified Data.Map as Map
 import Data.Map (Map, fromList, elems)
 import Data.ByteString (getLine, fromStrict)
-import EconomancyEntites(Card(..), Player(..), State(..), Phase(..), referenceCards, getStateFromJSON)
+import EconomancyEntites(Card(..), Player(..), State(..), Phase(..), referenceCards, getStateFromJSON, Day, Coins, currentPlayer, cardEarnings, cardEarnings)
 import Data.Time.Clock.POSIX
 import qualified Data.Aeson as JSON
-import JSONEntities (JSONState)
+import qualified JSONEntities (JSONState (day))
 import System.Exit (exitSuccess, ExitCode (ExitSuccess), exitWith)
 import System.IO ( stdout, hFlush )
+import System.Random
+import Data.Foldable (maximumBy)
+import Data.Ord (comparing)
 
-
-currentPlayer :: State -> Player
-currentPlayer state = players state !! player state
 
 {-|
 Gets the amount of coins the player wishes to invest, which will be between 0 and
@@ -33,7 +35,9 @@ getInvestment state randomInvestment =
     coinsWithPlayer = coins thisPlayer
     maximumCoinsWithOpponent = maximum coinsWithOpponents
     hasMoreCoinsThanPlayer = numberOfStrongerOpponents (coins thisPlayer) coinsWithOpponents
-  in if strongerThanPlayer < length totalDefenseOfOpponents `div` 2 && hasMoreCoinsThanPlayer < length totalDefenseOfOpponents `div` 2 then
+  in if length totalDefenseOfOpponents > 2 &&
+    strongerThanPlayer < length totalDefenseOfOpponents `div` 2 &&
+    hasMoreCoinsThanPlayer < length totalDefenseOfOpponents `div` 2 then
       let
         smartInvestment = if min maximumCoinsWithOpponent coinsWithPlayer < coinsWithPlayer
           then maximumCoinsWithOpponent + 1
@@ -68,22 +72,39 @@ nextAttackMove state attacking =
 
 getStrongestCard :: (Card -> Int) -> [Card] -> Bool -> Int
 getStrongestCard strength deck forAttack =
-  -- Don't consider the Bubble card while choosing for the attack phase
-  let usableDeck = if forAttack then [c | c <- deck, (name :: Card -> String) c /= "Bubble"] else deck
+  {- Set uses for the Bubble card to 1 while attacking to ignore it -}
+  let usableDeck = if forAttack then [if (name :: Card -> String) c /= "Bubble" then c 
+      else Card{name="Bubble", uses=1, attack=9, defense=2, victory_points=0, cost=2, dayEarnings=[0, 0, 0]} | c <- deck]
+      else deck
       enumeratedDeck = zip [0..(length usableDeck - 1)] usableDeck
   in
-  -- No Wall of Wealth card yet, hence based around uses == 0
-  fst (
-    foldl (\x y -> if uses (snd y) == 0 && strength (snd y) > strength (snd x)
-    then y
-    else x)
-    (0, head usableDeck)
-    enumeratedDeck
-    )
+    if null usableDeck 
+      then 0
+      else
+      fst (
+        foldl (\x y -> if ((uses (snd y) == 0) || (not forAttack && name (snd y) == "Wall of Wealth" && uses (snd y) <=1)) && strength (snd y) > strength (snd x)
+        then y
+        else x)
+        (0, head usableDeck)
+        enumeratedDeck
+        )
+
+{-
+Finds the card among those that the player can afford 
+which gives the highest income on the next day
+-}
+getCardWithHighestNextDayIncome :: State -> [Card] -> Int
+getCardWithHighestNextDayIncome state availableOptions =
+  let
+    nextDay = (day :: State -> Day) state `mod` 2
+    earnings = [cardEarnings state card nextDay | card <- availableOptions]
+  in snd $ maximumBy (comparing fst) (zip earnings [0..])
+
 
 {-|
 Randomly choose a card to purchase based on the random number randomDecisionFlag.
-Choose to either pass or select a card with the highest attack or denfense value.
+Choose to either pass or select a card with the highest attack, denfense, or a 
+card that maximizes income on the following day.
 -}
 makeAPurchase :: State -> Int -> String
 makeAPurchase state randomDecisionFlag =
@@ -91,11 +112,13 @@ makeAPurchase state randomDecisionFlag =
   in if coinBalance == 0 || null availableOptions
     then "Pass"
     else
-      case randomDecisionFlag `mod` 5 of
+      case randomDecisionFlag `mod` 7 of
         0 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
         1 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
-        2 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
-        3 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
+        2 -> (name :: Card -> String) (availableOptions !! getCardWithHighestNextDayIncome state availableOptions)
+        3 -> (name :: Card -> String) (availableOptions !! getCardWithHighestNextDayIncome state availableOptions)
+        4 -> (name :: Card -> String) (availableOptions !! getStrongestCard defense availableOptions False)
+        5 -> (name :: Card -> String) (availableOptions !! getStrongestCard attack availableOptions False)
         _ -> "Pass"
   where thisPlayer = currentPlayer state
         inventory = shop state
@@ -108,15 +131,18 @@ getViableOptions inventory coinBalance =
     where availableOptions = [c | c <- elems referenceCards, Map.member ((name :: Card -> String) c) inventory,
             (inventory Map.! (name :: Card -> String) c) > 0, cost c <= coinBalance]
 
+
+
 main = do
   input <- Data.ByteString.getLine
   let gameState = Data.ByteString.fromStrict input
-  randomNumber <- round <$> getPOSIXTime
-  let jsonState = JSON.decode gameState :: Maybe JSONState
+  randomSeed <- round <$> getPOSIXTime
+  randomNumber <- randomRIO(1, randomSeed)
+  let jsonState = JSON.decode gameState :: Maybe JSONEntities.JSONState
   let state = getStateFromJSON jsonState
   case phase state of
     InvestingOrBuy phaseName -> if phaseName  == "investing"
       then putStrLn (show [getInvestment state randomNumber]) >> hFlush stdout >> main
-      else putStrLn (show [makeAPurchase state randomNumber]) >> hFlush stdout >>main
-    Attacking phaseName attacker attacker_card -> putStrLn (show [nextAttackMove state (player state == attacker)]) >> main
+      else putStrLn (show [makeAPurchase state randomNumber]) >> hFlush stdout >> main
+    Attacking phaseName attacker attacker_card -> putStrLn (show [nextAttackMove state (attacker_card == Nothing)]) >> hFlush stdout >> main
     End phaseName winner -> exitSuccess

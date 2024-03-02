@@ -13,11 +13,16 @@ The player tries to play it safe here. If the total attacking capability across 
 The player makes its next move in the attacking phase based on a very naive strategy: attack with an untapped card that has the highest attacking capability, and defend with an untapped card that has the highest defending capability.
 
 Note:
-- It is assumed that only the cards mentioned [here](https://users.cs.utah.edu/~mflatt/cs6525/economancy.html#%28tech._card._name%29) are used in a game. Hence, the player considers any card whose ``uses`` property is 0 as an untapped / available card.
+- It is assumed that all the cards mentioned [here](https://users.cs.utah.edu/~mflatt/cs6525/economancy.html#%28tech._card._name%29) are used in a game. Hence, the player considers any card whose ``uses`` property is 0 as an untapped / available card.
 - Since the Bubble card cannot atttack, it is ignored while choosing an attacking card.
+- While defending, a Wall of Wealth card is considered untapped if its uses are <=1 since it can be used twice in a turn to defend.
 
 ### Buy Phase ###
-The player chooses to invest based on a process that combines randomness with a set of fixed decisions. Based on a random number, the player chooses to either purchase the strongest affordable attacking card, the strongest affordable defending card, or to pass.
+The player chooses to invest based on a process that combines randomness with a set of fixed decisions. Based on a random number, the player chooses to either:
+- purchase a (there might be many) strongest affordable attacking card
+- purchase a strongest affordable defending card
+- purchase a card that earns it the highest income on the next day
+-  or to pass
 
 ## Running the Player ##
 The player has been compiled and tested on Windows and Ubuntu. 
