@@ -1,8 +1,8 @@
 module Model where
-import Graphics.Gloss
+import Graphics.Gloss hiding (Vector)
 
 import GraphicsUtils
-import qualified Graphics.Gloss
+import qualified Graphics.Gloss hiding (Vector)
 
 -- | The default x-velocity for player
 defaultXSpeed = 6
@@ -22,24 +22,29 @@ data Vector = Vector2D {
 } deriving Show
 
 data Circle = Circle {
-    location :: Location,
+    location :: Vector,
     colour :: Color,
     size :: Float
 } deriving Show
 
 data Player =  Player {
-    playerCircle :: Circle,
-    speed :: Model.Vector
+    playerId :: Int,
+    playerCircle :: Circle,    
+    playerName :: String,
+    playerSpeed :: Float
 } deriving Show
 
 data Powerup = RegularPowerup {
+   powerupId :: Int,
    powerupCircle :: Circle,
    growthPotential :: Float
 }
 
 data Game = Agario {
     players :: [Player],
-    powerups :: [Powerup]
+    deadPlayers :: [Player],
+    powerups :: [Powerup],
+    eatenPowerups :: [Powerup]
 }
 
 drawPlayer :: Player -> Picture
@@ -49,20 +54,20 @@ drawPlayer player =
         c = playerCircle player
         radius = size c
         currentLocation = location c
-        x = fst currentLocation
-        y = snd currentLocation
+        x = xComponent currentLocation
+        y = yComponent currentLocation
         col = colour c
 
 drawPowerup :: Powerup -> Picture
 drawPowerup powerup =
     case powerup of
-        RegularPowerup _ _ -> drawAThickCircle radius 5 x y col 
+        RegularPowerup {} -> drawAThickCircle radius 5 x y col 
         where
             c = powerupCircle powerup
             radius = size c
             currentLocation = location c
-            x = fst currentLocation
-            y = snd currentLocation
+            x = xComponent currentLocation
+            y = yComponent currentLocation
             col = colour c
 
 
@@ -73,18 +78,18 @@ render game =
 initAgario :: Game
 initAgario = Agario {
     players = [
-        Player{playerCircle = Model.Circle{location = (50, 50), colour = dark red, size = 15}, speed = Vector2D{xComponent = defaultXSpeed + 5, yComponent = defaultYSpeed + 5}},
-        Player{playerCircle = Model.Circle{location = (100, 100), colour = light blue, size = 30}, speed = Vector2D{xComponent = -(defaultXSpeed + 3), yComponent = defaultYSpeed + 3.5}},
-        Player{playerCircle = Model.Circle{location = (150, 138), colour = yellow, size = 40}, speed = Vector2D{xComponent = defaultXSpeed + 1.5, yComponent = -(defaultYSpeed + 2.1)}}
+        Player{playerId = 1, playerName = "", playerCircle = Model.Circle{location = Vector2D 50 50, colour = dark red, size = 15}, playerSpeed = 10.0},
+        Player{playerId = 2, playerName = "", playerCircle = Model.Circle{location = Vector2D 100 100, colour = light blue, size = 30}, playerSpeed = 15.0},
+        Player{playerId = 3, playerName = "", playerCircle = Model.Circle{location = Vector2D 150 138, colour = yellow, size = 40}, playerSpeed = 16.0}
     ],
-    powerups = [
-        RegularPowerup{powerupCircle = Model.Circle{location = (90, 85), colour = dark green, size = regularPowerupSize}, growthPotential = 2.0},
-        RegularPowerup{powerupCircle = Model.Circle{location = (652, 128), colour = dark green, size = regularPowerupSize}, growthPotential = 2.0},
-        RegularPowerup{powerupCircle = Model.Circle{location = (283, 571), colour = dark green, size = regularPowerupSize}, growthPotential = 2.0},
-        RegularPowerup{powerupCircle = Model.Circle{location = (794, 387), colour = dark green, size = regularPowerupSize}, growthPotential = 2.0},
-        RegularPowerup{powerupCircle = Model.Circle{location = (429, 104), colour = dark green, size = regularPowerupSize}, growthPotential = 2.0}
-    ]
-}
+    deadPlayers = [],
+    eatenPowerups = [],
+        powerups = [
+        RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 90 85, colour = dark green, size = regularPowerupSize}, growthPotential = 2.0},
+        RegularPowerup{powerupId = 2, powerupCircle = Model.Circle{location = Vector2D 652 128, colour = dark green, size = regularPowerupSize}, growthPotential = 2.0},
+        RegularPowerup{powerupId = 3, powerupCircle = Model.Circle{location = Vector2D 283 571, colour = dark green, size = regularPowerupSize}, growthPotential = 2.0}
+        ]
+    }
 
 advancePlayers :: Float -> Game -> Game
 advancePlayers elapsedSeconds currentState =
@@ -95,9 +100,9 @@ advancePlayers elapsedSeconds currentState =
 
 advancePlayer :: Player -> Player
 advancePlayer currentPlayerState =
-    currentPlayerState{playerCircle = c{location = (fromIntegral newX, fromIntegral newY)}}
+    currentPlayerState{playerCircle = c{location = Vector2D{xComponent = fromIntegral newX, yComponent = fromIntegral newY}}}
     where
-        playerSpeed = speed currentPlayerState
+        currentPlayerSpeed = playerSpeed currentPlayerState
         c = playerCircle currentPlayerState
-        newX = round (fst (location c) + xComponent playerSpeed) `mod` windowWidth
-        newY = round (snd (location c) + yComponent playerSpeed) `mod` windowHeight
+        newX = round (xComponent (location c) +  currentPlayerSpeed) `mod` windowWidth
+        newY = round (yComponent (location c) +  currentPlayerSpeed) `mod` windowHeight
