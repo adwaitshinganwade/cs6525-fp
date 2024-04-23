@@ -28,7 +28,7 @@ translateAsPerWorldCoordinates x y picture =
         worldYCenter = fromIntegral windowWidth / 2
 
 drawASolidCircle :: Float -> Float -> Float -> Color -> Picture
-drawASolidCircle radius x y col = translateAsPerWorldCoordinates x y $ color col (circleSolid radius)
+drawASolidCircle radius x y col= translateAsPerWorldCoordinates x y $ color col (circleSolid radius)
 
 drawAThickCircle :: Float -> Float -> Float -> Float -> Color -> Picture
 drawAThickCircle radius thickness x y col = translateAsPerWorldCoordinates x y $ color col (thickCircle radius thickness)
