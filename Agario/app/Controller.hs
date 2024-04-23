@@ -1,12 +1,18 @@
 module Controller where
-import Model (Circle (..), Vector (xComponent, yComponent), Game, Player (playerCircle))
-import Data.Set (Set, fromList, toList)
+import Model (Circle (..), Vector (xComponent, yComponent), Game (thePlayer), Player (playerCircle, Player, playerSpeed), Powerup (..))
+import Data.Set (Set, fromList, toList, empty, insert)
+import Data.List (delete)
 
+maxPlayerSize :: Float
+maxPlayerSize = 200.0
+
+minPlayerSpeed :: Float
+minPlayerSpeed = 1.0
 
 checkCircleIntersection :: Circle -> Circle -> Bool
 checkCircleIntersection aCircle anotherCircle =
-    let 
-        radiusOne = size aCircle        
+    let
+        radiusOne = size aCircle
         radiusTwo = size anotherCircle
     in
         (distance <= radiusOne + radiusTwo)
@@ -18,11 +24,43 @@ checkCircleIntersection aCircle anotherCircle =
 -- Returns a set containing dead players
 getPlayersCollidingWithAnotherPlayer :: Set Player -> Set Player
 getPlayersCollidingWithAnotherPlayer currentPlayers =
-    let 
+    let
         listOfAllPlayers = toList currentPlayers
     in
         fromList [p | p <- listOfAllPlayers, q <- listOfAllPlayers, p /= q, checkCircleIntersection (playerCircle p) (playerCircle q)]
-    
+
+playerEatsPowerup :: Player -> Powerup -> Player
+playerEatsPowerup thePlayer thePowerup =
+    thePlayer{playerCircle = (playerCircle thePlayer){size = min newSize maxPlayerSize}, playerSpeed = max (currentSize / newSize * currentSpeed) minPlayerSpeed}
+    where
+        currentSize = size $ playerCircle thePlayer
+        growth = growthPotential thePowerup
+        newSize = currentSize + growth
+        currentSpeed = playerSpeed thePlayer
+
+-- Returns consumed powerups along with the player that consumes them
+getEatenPowerups :: [Player] -> [Powerup] -> Set (Player, Powerup)
+getEatenPowerups [] alivePowerups = empty
+getEatenPowerups alivePlayers [] = empty
+getEatenPowerups (p:ps) alivePowerups =
+    case getEatenPowerup p alivePowerups of
+        Just f -> insert (p, f) $ getEatenPowerups ps (delete f alivePowerups)
+        Nothing -> getEatenPowerups ps alivePowerups
+
+
+
+
+getEatenPowerup :: Player -> [Powerup] -> Maybe Powerup
+getEatenPowerup aPlayer [] = Nothing
+getEatenPowerup aPlayer (p:ps) =
+    if checkCircleIntersection (playerCircle aPlayer) (powerupCircle p)
+        then Just p
+    else
+        getEatenPowerup aPlayer ps
+
+
+
+
 
 -- updateGameState :: Game -- -> Game
 -- updateGameState currentState =
@@ -40,4 +78,4 @@ getPlayersCollidingWithAnotherPlayer currentPlayers =
 --         -- Check if there are a minimum number of powerups and generate more if needed
 
 --         -- Generate the next game state
-    
+

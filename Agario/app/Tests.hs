@@ -2,9 +2,11 @@ module Tests where
 
 import Controller
 import Graphics.Gloss (red, yellow, rgbaOfColor)
-import Model (Circle (..), Vector (..), Player(..))
+import Model (Circle (..), Vector (..), Player(..), Powerup(..), Game (thePlayer), regularPowerupSize)
 import Data.Set(fromList, empty)
 import Test.HUnit
+
+-- Tests to validate circle-overlap logic
 
 collisionTests = TestList [circleOverlapTest1, circleOverlapTest2, circleOverlapTest3, circleOverlapTest4, circleOverlapTest5]
 
@@ -17,8 +19,8 @@ testCircleOverlap c1 c2 expectedResult errorMessage =
   TestCase
     ( assertEqual
         (errorMessage ++ show (location c1) ++ ", " ++ show (location c2))
-        (checkCircleIntersection c1 c2)
         expectedResult
+        (checkCircleIntersection c1 c2)
     )
 
 -- Circles which clearly don't overlap
@@ -61,6 +63,9 @@ circleOverlapTest5 =
     True
     collisionOverlapping
 
+
+-- Tests to validate player-player collision
+
 playerPlayerCollision = TestList [playerPlayerCollisionTest1, playerPlayerCollisionTest2]
 
 -- Some players collide (possibly with multiple players)
@@ -68,8 +73,8 @@ playerPlayerCollisionTest1 =
   TestCase
     ( assertEqual
       "Failed to detect one or more dead players"
-      (getPlayersCollidingWithAnotherPlayer activePlayers)
       expectedDeadPlayers
+      (getPlayersCollidingWithAnotherPlayer activePlayers)
     )
   where
     collidingPlayer1 = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0}
@@ -89,8 +94,8 @@ playerPlayerCollisionTest2 =
   TestCase
     ( assertEqual
       "Detected colliding players when none of them collide"
-      (getPlayersCollidingWithAnotherPlayer activePlayers)
       expectedDeadPlayers
+      (getPlayersCollidingWithAnotherPlayer activePlayers)
     )
   where
     activePlayers =
@@ -101,3 +106,37 @@ playerPlayerCollisionTest2 =
           Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 (-138), colour = rgbaOfColor red, size = 70}, playerSpeed = 16.0}
         ]
     expectedDeadPlayers = empty
+
+-- Tests to validate consumption of powerup by a player
+
+playerCosumptionOfPowerupTests = TestList [playerPowerupConsumptionTest1, playerPowerupConsumptionTest2]
+
+
+testPowerupConsumption :: Player -> Powerup -> Float -> Float -> Test
+testPowerupConsumption thePlayer thePowerup expectedNewSize expectedNewSpeed =
+    TestCase(
+        assertEqual
+        "The player could not consume food correctly"
+         expectedPlayerState
+        (playerEatsPowerup thePlayer thePowerup)
+    )
+    where
+        currentCircle = playerCircle thePlayer
+        expectedPlayerState = thePlayer {playerCircle = currentCircle{size = expectedNewSize}, playerSpeed = expectedNewSpeed}
+
+-- Consuming a powerup whose effects can be fully applied
+playerPowerupConsumptionTest1 =
+    testPowerupConsumption aPlayer aPowerup 12 (10 / 12 * 10)
+    where
+        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0}
+        aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 2.0}
+
+
+-- Consuming a powerup which causes the size and speed of the player reach the cap
+playerPowerupConsumptionTest2 =
+    testPowerupConsumption aPlayer aPowerup maxPlayerSize minPlayerSpeed
+    where
+        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0}
+        aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 191.2}
+
+-- TODO: tests for consuming powerup
