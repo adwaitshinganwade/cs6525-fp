@@ -9,14 +9,18 @@ import System.Random (StdGen, Random (randomRs))
 import Data.List (delete)
 
 -- | The default x-velocity for player
-defaultXSpeed :: Float = 6.0
+defaultXSpeed :: Float
+defaultXSpeed = 6.0
 
 -- | The default y-velocity for player
 defaultYSpeed  = 0
 
+defaultPlayerSize = 10.0
+
 -- | The radius of the circle for a regular powerup
 regularPowerupSize = 10
-regularPowerupGrowthPotential :: Float = 2.0
+regularPowerupGrowthPotential :: Float
+regularPowerupGrowthPotential = 2.0
 
 maxPlayerSize :: Float
 maxPlayerSize = 200.0
@@ -25,7 +29,7 @@ minPlayerSpeed :: Float
 minPlayerSpeed = 1.0
 
 minPowerupCount :: Int
-minPowerupCount = 20
+minPowerupCount = 5
 
 enumerate :: [b] -> [(Integer, b)]
 enumerate = zip [0..]
@@ -60,9 +64,12 @@ data Powerup = RegularPowerup {
 data Game = Agario {
     thePlayer :: Int,
     players :: Set Player,
+    nextPlayerId :: Int,
     deadPlayers :: Set Player,
     powerups :: Set Powerup,
-    eatenPowerups :: Set Powerup
+    nextPowerupId :: Int,
+    eatenPowerups :: Set Powerup,
+    rnGen :: StdGen
 }
 
 drawPlayer :: Player -> Picture
@@ -174,7 +181,7 @@ generateNewPlayerAtRandomLocation rnGenerator currentPlayers currentPowerups id 
         allPlayerCircles = [playerCircle p | p <- toList currentPlayers]
         allPowerupCircles = [powerupCircle p | p <- toList currentPowerups]
         allCircles = allPlayerCircles ++ allPowerupCircles
-        newCircle = generateNonconflictingCircle rnGenerator allCircles
+        newCircle = generateNonconflictingCircle rnGenerator defaultPlayerSize allCircles
     in
         Player {
             playerId = id,
@@ -183,27 +190,26 @@ generateNewPlayerAtRandomLocation rnGenerator currentPlayers currentPowerups id 
             playerSpeed = defaultXSpeed
         }
 
-generateNonconflictingCircle :: StdGen -> [Circle] -> Circle
-generateNonconflictingCircle rnGenerator circles =
+generateNonconflictingCircle :: StdGen -> Float -> [Circle] -> Circle
+generateNonconflictingCircle rnGenerator radius circles =
     let
-        newCircle = generateRandomCircle rnGenerator
+        newCircle = generateRandomCircle rnGenerator radius
     in
         if  any (checkCircleIntersection newCircle) circles then
-            generateNonconflictingCircle rnGenerator circles
+            generateNonconflictingCircle rnGenerator radius circles
         else
             newCircle
 
-generateRandomCircle :: StdGen -> Circle
-generateRandomCircle rnGenerator =
+generateRandomCircle :: StdGen -> Float -> Circle
+generateRandomCircle rnGenerator radius =
     let
-        pX = take 1 $ randomRs (0, windowWidth - 1) rnGenerator
-        pY = take 1 $ randomRs (0, windowHeight - 1) rnGenerator
-        pLoc = Vector2D (fromIntegral $ head pX) (fromIntegral $ head pY)
-        pSize = take 1 $ randomRs (1, maxPlayerSize) rnGenerator
+        pX = take 100 $ randomRs (0, windowWidth - 1) rnGenerator
+        pY = take 50 $ randomRs (0, windowHeight - 1) rnGenerator
+        pLoc = Vector2D (fromIntegral $ last pX) (fromIntegral $ last pY)
     in
         Model.Circle {
             location = pLoc,
             -- TODO: generate player with random colour every time
             colour = rgbaOfColor green,
-            size = head pSize
+            size = radius
         }
