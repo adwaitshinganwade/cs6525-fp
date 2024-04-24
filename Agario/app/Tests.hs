@@ -2,11 +2,10 @@ module Tests where
 
 import Controller
 import Graphics.Gloss (red, yellow, rgbaOfColor)
-import Model (Circle (..), Vector (..), Player(..), Powerup(..), Game (thePlayer), regularPowerupSize, regularPowerupGrowthPotential)
+import Model
 import Data.Set hiding(size)
 import qualified Data.Set(size)
 import Test.HUnit
-import Controller (getEatenPowerups, ensureMinimumPowerupCount, minPowerupCount)
 import Data.List (tail, last)
 import System.Random (getStdGen, mkStdGen)
 
@@ -208,12 +207,40 @@ playerPowerupConsumptionDetectionTest3 =
     testPowerupConsumptionDetection alivePlayers alivePowerups expectedPlayerPowerupPairs
 
 -- Tests to validate the logic to ensure minimum powerups
-testMinimumPowerup :: Int -> Set Powerup -> Test
-testMinimumPowerup nextInt currentPowerups =
+
+-- Less than minimum number of powerups
+
+minimumPowerupCountTests = TestList [minimumPowerupsTest1, minimumPowerupsTest2, minimumPowerupsTest3, minimumPowerupsTest4]
+
+minimumPowerupsTest1 =
       TestCase (
         assertBool
         "Failed to replenish powerups"
-        (Data.Set.size (fst (ensureMinimumPowerupCount currentPowerups nextInt (mkStdGen 1000))) == minPowerupCount)
+        (Data.Set.size (fst (ensureMinimumPowerupCount (generateRandomPowerups 13) 13 (mkStdGen 1000))) == minPowerupCount)
+        )
+
+-- Powerup count is exactly minPowerupCount
+minimumPowerupsTest2 =
+      TestCase (
+        assertBool
+        "Created more powerups than necessary"
+        (snd (ensureMinimumPowerupCount (generateRandomPowerups minPowerupCount) 13 (mkStdGen 1000)) == 13)
+        )
+
+-- More than minimum required powerups already exist
+minimumPowerupsTest3 =
+      TestCase (
+        assertBool
+        "Created more powerups than necessary"
+        (snd (ensureMinimumPowerupCount (generateRandomPowerups (minPowerupCount + 5)) 17 (mkStdGen 1000)) == 17)
+        )
+
+-- The correct next ID is returned after creating powerups
+minimumPowerupsTest4 =
+      TestCase (
+        assertBool
+        "Created more powerups than necessary"
+        (snd (ensureMinimumPowerupCount (generateRandomPowerups (minPowerupCount - 5)) 13 (mkStdGen 1000)) == 18)
         )
 
 
@@ -229,13 +256,10 @@ generateRandomPowerups numPowerups =
                         powerupCircle = Model.Circle{
                             location = Vector2D (fromIntegral $ someXs !! i) (fromIntegral $ someYs !! i),
                             -- TODO (low priority): random colour for each powerup
+                            -- TODO: powerups should not be generated at a position where there's already something
                             colour = rgbaOfColor yellow,
                             size = regularPowerupSize},
                         growthPotential = regularPowerupGrowthPotential
                     }
         | i <- [0..(numPowerups-1)]
     ]
-
--- Less than min powerups. 
-minimumPowerupsTest1 =
-  testMinimumPowerup 13 (generateRandomPowerups 13)

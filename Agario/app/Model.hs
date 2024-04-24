@@ -3,10 +3,13 @@ import Graphics.Gloss hiding (Vector)
 
 import GraphicsUtils
 import qualified Graphics.Gloss hiding (Vector)
-import Data.Set (Set, fromList, empty, toList)
+import Data.Set (Set, fromList, empty, toList, insert)
+import qualified Data.Set as Set
+import System.Random (StdGen, Random (randomRs))
+import Data.List (delete)
 
 -- | The default x-velocity for player
-defaultXSpeed = 6
+defaultXSpeed :: Float = 6.0
 
 -- | The default y-velocity for player
 defaultYSpeed  = 0
@@ -14,6 +17,18 @@ defaultYSpeed  = 0
 -- | The radius of the circle for a regular powerup
 regularPowerupSize = 10
 regularPowerupGrowthPotential :: Float = 2.0
+
+maxPlayerSize :: Float
+maxPlayerSize = 200.0
+
+minPlayerSpeed :: Float
+minPlayerSpeed = 1.0
+
+minPowerupCount :: Int
+minPowerupCount = 20
+
+enumerate :: [b] -> [(Integer, b)]
+enumerate = zip [0..]
 
 {- Types and data -}
 type Location = (Float, Float)
@@ -73,40 +88,122 @@ drawPowerup powerup =
             y = yComponent currentLocation
             (c1, c2, c3, c4) = colour c
 
-
-render :: Game -> Picture
-render game =
-    pictures $ map drawPlayer (toList $ players game) ++ map drawPowerup (toList $ powerups game)
-
-initAgario :: Game
-initAgario = Agario {
-    players = fromList [
-        Player{ playerId = 1, playerName = "", playerCircle = Model.Circle{location = Vector2D 50 50, colour = (10, 10, 10, 10) , size = 15}, playerSpeed = 10.0},
-        Player{playerId = 2, playerName = "", playerCircle = Model.Circle{location = Vector2D 100 100, colour = (20, 10, 10, 10), size = 30}, playerSpeed = 15.0},
-        Player{playerId = 3, playerName = "", playerCircle = Model.Circle{location = Vector2D 150 138, colour = (10, 20, 10, 10), size = 40}, playerSpeed = 16.0}
-    ],
-    deadPlayers = empty,
-    eatenPowerups = empty,
-        powerups = fromList [
-        RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 90 85, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 2.0},
-        RegularPowerup{powerupId = 2, powerupCircle = Model.Circle{location = Vector2D 652 128, colour = (10, 10, 10, 20), size = regularPowerupSize}, growthPotential = 2.0},
-        RegularPowerup{powerupId = 3, powerupCircle = Model.Circle{location = Vector2D 283 571, colour = (10, 10, 20, 20), size = regularPowerupSize}, growthPotential = 2.0}
-        ],
-    thePlayer = 0
-    }
-
-advancePlayers :: Float -> Game -> Game
-advancePlayers elapsedSeconds currentState =
-    currentState {players = fromList movedPlayers}
+checkCircleIntersection :: Circle -> Circle -> Bool
+checkCircleIntersection aCircle anotherCircle =
+    let
+        radiusOne = size aCircle
+        radiusTwo = size anotherCircle
+    in
+        (distance <= radiusOne + radiusTwo)
     where
-        movedPlayers = map advancePlayer $ toList (players currentState)
+        centerOne = location aCircle
+        centerTwo = location anotherCircle
+        distance = sqrt $ (xComponent centerOne - xComponent centerTwo)**2 + (yComponent centerOne - yComponent centerTwo)**2
 
+-- Returns a set containing dead players
+getPlayersCollidingWithAnotherPlayer :: Set Player -> Set Player
+getPlayersCollidingWithAnotherPlayer currentPlayers =
+    let
+        listOfAllPlayers = toList currentPlayers
+    in
+        fromList [p | p <- listOfAllPlayers, q <- listOfAllPlayers, p /= q, checkCircleIntersection (playerCircle p) (playerCircle q)]
 
-advancePlayer :: Player -> Player
-advancePlayer currentPlayerState =
-    currentPlayerState{playerCircle = c{location = Vector2D{xComponent = fromIntegral newX, yComponent = fromIntegral newY}}}
+playerEatsPowerup :: Player -> Powerup -> Player
+playerEatsPowerup thePlayer thePowerup =
+    thePlayer{playerCircle = (playerCircle thePlayer){size = min newSize maxPlayerSize}, playerSpeed = max (currentSize / newSize * currentSpeed) minPlayerSpeed}
     where
-        currentPlayerSpeed = playerSpeed currentPlayerState
-        c = playerCircle currentPlayerState
-        newX = round (xComponent (location c) +  currentPlayerSpeed) `mod` windowWidth
-        newY = round (yComponent (location c) +  currentPlayerSpeed) `mod` windowHeight
+        currentSize = size $ playerCircle thePlayer
+        growth = growthPotential thePowerup
+        newSize = currentSize + growth
+        currentSpeed = playerSpeed thePlayer
+
+-- Returns consumed powerups along with the player that consumes them
+getEatenPowerups :: [Player] -> [Powerup] -> Set (Player, Powerup)
+getEatenPowerups [] alivePowerups = empty
+getEatenPowerups alivePlayers [] = empty
+getEatenPowerups (p:ps) alivePowerups =
+    case getEatenPowerup p alivePowerups of
+        Just f -> insert (p, f) $ getEatenPowerups ps (delete f alivePowerups)
+        Nothing -> getEatenPowerups ps alivePowerups
+
+-- Returns the first powerup among all alive powerups that a player can eat
+getEatenPowerup :: Player -> [Powerup] -> Maybe Powerup
+getEatenPowerup aPlayer [] = Nothing
+getEatenPowerup aPlayer (p:ps) =
+    if checkCircleIntersection (playerCircle aPlayer) (powerupCircle p)
+        then Just p
+    else
+        getEatenPowerup aPlayer ps
+        
+
+-- Ensures that there are at least Controller.minPowerupCount powerups in the world. 
+-- Generates random powerups as needed. 
+ensureMinimumPowerupCount :: Set Powerup -> Int -> StdGen -> (Set Powerup, Int)
+ensureMinimumPowerupCount alivePowerups nextId randomNumberGenerator =
+    let
+        neededRefill = minPowerupCount - Set.size alivePowerups
+        in
+        if neededRefill > 0
+            then
+                let
+                randomXs = take neededRefill $ randomRs (0, windowWidth - 1) randomNumberGenerator
+                randomYs = take neededRefill $ randomRs (0, windowHeight - 1) randomNumberGenerator
+                refilledPowerups = [
+                    RegularPowerup{
+                        powerupId = nextId + i,
+                        powerupCircle = Model.Circle{
+                            location = Vector2D (fromIntegral $ randomXs !! i) (fromIntegral $ randomYs !! i),
+                            -- TODO (low priority): random colour for each powerup
+                            colour = rgbaOfColor yellow,
+                            size = regularPowerupSize},
+                        growthPotential = regularPowerupGrowthPotential
+                    }
+                    | i <- [0..(neededRefill-1)]]
+                    in
+                    (Set.union (fromList refilledPowerups)  alivePowerups, nextId + neededRefill)
+
+            else
+                (alivePowerups, nextId)
+
+
+--Generates a player at a random initial position such that it doesn't collide with any other players or powerups
+generateNewPlayerAtRandomLocation :: StdGen -> Set Player -> Set Powerup -> Int -> Player
+generateNewPlayerAtRandomLocation rnGenerator currentPlayers currentPowerups id =
+
+    let
+        allPlayerCircles = [playerCircle p | p <- toList currentPlayers]
+        allPowerupCircles = [powerupCircle p | p <- toList currentPowerups]
+        allCircles = allPlayerCircles ++ allPowerupCircles
+        newCircle = generateNonconflictingCircle rnGenerator allCircles
+    in
+        Player {
+            playerId = id,
+            playerName = "",
+            playerCircle = newCircle,
+            playerSpeed = defaultXSpeed
+        }
+
+generateNonconflictingCircle :: StdGen -> [Circle] -> Circle
+generateNonconflictingCircle rnGenerator circles =
+    let
+        newCircle = generateRandomCircle rnGenerator
+    in
+        if  any (checkCircleIntersection newCircle) circles then
+            generateNonconflictingCircle rnGenerator circles
+        else
+            newCircle
+
+generateRandomCircle :: StdGen -> Circle
+generateRandomCircle rnGenerator =
+    let
+        pX = take 1 $ randomRs (0, windowWidth - 1) rnGenerator
+        pY = take 1 $ randomRs (0, windowHeight - 1) rnGenerator
+        pLoc = Vector2D (fromIntegral $ head pX) (fromIntegral $ head pY)
+        pSize = take 1 $ randomRs (1, maxPlayerSize) rnGenerator
+    in
+        Model.Circle {
+            location = pLoc,
+            -- TODO: generate player with random colour every time
+            colour = rgbaOfColor green,
+            size = head pSize
+        }
