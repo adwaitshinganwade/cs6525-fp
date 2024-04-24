@@ -13,6 +13,7 @@ defaultYSpeed  = 0
 
 -- | The radius of the circle for a regular powerup
 regularPowerupSize = 10
+regularPowerupGrowthPotential :: Float = 2.0
 
 {- Types and data -}
 type Location = (Float, Float)

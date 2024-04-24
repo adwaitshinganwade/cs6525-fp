@@ -1,13 +1,22 @@
 module Controller where
-import Model (Circle (..), Vector (xComponent, yComponent), Game (thePlayer), Player (playerCircle, Player, playerSpeed), Powerup (..))
+import Model (Circle (..), Vector (xComponent, yComponent, Vector2D), Game (thePlayer), Player (playerCircle, Player, playerSpeed), Powerup (..), regularPowerupSize, regularPowerupGrowthPotential)
 import Data.Set (Set, fromList, toList, empty, insert)
 import Data.List (delete)
+import System.Random (Random(randomRs), RandomGen, StdGen)
+import GraphicsUtils (windowHeight, windowWidth)
+import qualified Data.Set as Set
+import Graphics.Gloss (rgbaOfColor, yellow)
 
 maxPlayerSize :: Float
 maxPlayerSize = 200.0
 
 minPlayerSpeed :: Float
 minPlayerSpeed = 1.0
+
+minPowerupCount :: Int
+minPowerupCount = 20
+
+enumerate = zip [0..]
 
 checkCircleIntersection :: Circle -> Circle -> Bool
 checkCircleIntersection aCircle anotherCircle =
@@ -50,6 +59,7 @@ getEatenPowerups (p:ps) alivePowerups =
 
 
 
+-- Returns the first powerup among all alive powerups that a player can eat
 getEatenPowerup :: Player -> [Powerup] -> Maybe Powerup
 getEatenPowerup aPlayer [] = Nothing
 getEatenPowerup aPlayer (p:ps) =
@@ -57,6 +67,35 @@ getEatenPowerup aPlayer (p:ps) =
         then Just p
     else
         getEatenPowerup aPlayer ps
+
+-- Ensures that there are at least Controller.minPowerupCount powerups in the world. 
+-- Generates random powerups as needed. 
+ensureMinimumPowerupCount :: Set Powerup -> Int -> StdGen -> (Set Powerup, Int)
+ensureMinimumPowerupCount alivePowerups nextId randomNumberGenerator =
+    let 
+        neededRefill = minPowerupCount - Set.size alivePowerups
+        in
+        if neededRefill > 0
+            then
+                let
+                randomXs = take neededRefill $ randomRs (0, windowWidth - 1) randomNumberGenerator
+                randomYs = take neededRefill $ randomRs (0, windowHeight - 1) randomNumberGenerator
+                refilledPowerups = [
+                    RegularPowerup{
+                        powerupId = nextId + i, 
+                        powerupCircle = Model.Circle{
+                            location = Vector2D (fromIntegral $ randomXs !! i) (fromIntegral $ randomYs !! i), 
+                            -- TODO (low priority): random colour for each powerup
+                            colour = rgbaOfColor yellow, 
+                            size = regularPowerupSize}, 
+                        growthPotential = regularPowerupGrowthPotential 
+                    }
+                    | i <- [0..(neededRefill-1)]]
+                    in
+                    (Set.union (fromList refilledPowerups)  alivePowerups, nextId + (minPowerupCount - neededRefill))
+                    
+    else
+        (alivePowerups, nextId)
 
 
 

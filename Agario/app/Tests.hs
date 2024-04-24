@@ -2,9 +2,13 @@ module Tests where
 
 import Controller
 import Graphics.Gloss (red, yellow, rgbaOfColor)
-import Model (Circle (..), Vector (..), Player(..), Powerup(..), Game (thePlayer), regularPowerupSize)
-import Data.Set(fromList, empty)
+import Model (Circle (..), Vector (..), Player(..), Powerup(..), Game (thePlayer), regularPowerupSize, regularPowerupGrowthPotential)
+import Data.Set hiding(size)
+import qualified Data.Set(size)
 import Test.HUnit
+import Controller (getEatenPowerups, ensureMinimumPowerupCount, minPowerupCount)
+import Data.List (tail, last)
+import System.Random (getStdGen, mkStdGen)
 
 -- Tests to validate circle-overlap logic
 
@@ -114,7 +118,7 @@ playerCosumptionOfPowerupTests = TestList [playerPowerupConsumptionTest1, player
 
 testPowerupConsumption :: Player -> Powerup -> Float -> Float -> Test
 testPowerupConsumption thePlayer thePowerup expectedNewSize expectedNewSpeed =
-    TestCase(
+    TestCase (
         assertEqual
         "The player could not consume food correctly"
          expectedPlayerState
@@ -140,3 +144,98 @@ playerPowerupConsumptionTest2 =
         aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 191.2}
 
 -- TODO: tests for consuming powerup
+powerupConsumptionDetectionTests = TestList [playerPowerupConsumptionDetectionTest1, playerPowerupConsumptionDetectionTest2, playerPowerupConsumptionDetectionTest3]
+
+testPowerupConsumptionDetection :: [Player] -> [Powerup] -> Set (Player, Powerup) -> Test
+testPowerupConsumptionDetection alivePlayers alivePowerups expectedPlayerPowerupPairs =
+    TestCase (
+        assertEqual
+        "One or more player-powerup pairs were not detected correctly"
+         expectedPlayerPowerupPairs
+        (getEatenPowerups alivePlayers alivePowerups)
+    )
+
+-- Each player eats a powerup, no ambiguity
+playerPowerupConsumptionDetectionTest1 =
+  let
+    alivePlayers =
+      [
+        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0},
+        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-5.0) 3.0, colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0}
+      ]
+    alivePowerups =
+      [
+       RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 6.0 (-1.0), colour = (10, 10, 20, 10), size = 3.0}, growthPotential = 191.2},
+       RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D (-7.0) 1.0, colour = (10, 10, 20, 10), size = 2.0}, growthPotential = 191.2}
+      ]
+    expectedPlayerPowerupPairs = fromList $ zip alivePlayers alivePowerups
+  in
+    testPowerupConsumptionDetection alivePlayers alivePowerups expectedPlayerPowerupPairs
+
+
+-- No powerups are consumed
+playerPowerupConsumptionDetectionTest2 =
+  let
+    alivePlayers =
+      [
+        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0},
+        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-5.0) 7.0, colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0}
+      ]
+    alivePowerups =
+      [
+       RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 6.0 (-5.0), colour = (10, 10, 20, 10), size = 3.0}, growthPotential = 191.2},
+       RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D (-7.0) 1.0, colour = (10, 10, 20, 10), size = 2.0}, growthPotential = 191.2}
+      ]
+  in
+    testPowerupConsumptionDetection alivePlayers alivePowerups empty
+
+
+-- Multiple players colliding with the same powerup. The first one in the set of players eats
+playerPowerupConsumptionDetectionTest3 =
+  let
+    alivePlayers =
+      [
+        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0},
+        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 11.0 (-1.0), colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0}
+      ]
+    alivePowerups =
+      [
+       RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 6.0 (-1.0), colour = (10, 10, 20, 10), size = 3.0}, growthPotential = 191.2},
+       RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D (-7.0) 1.0, colour = (10, 10, 20, 10), size = 2.0}, growthPotential = 191.2}
+      ]
+    expectedPlayerPowerupPairs = fromList [(head alivePlayers, head alivePowerups)]
+  in
+    testPowerupConsumptionDetection alivePlayers alivePowerups expectedPlayerPowerupPairs
+
+-- Tests to validate the logic to ensure minimum powerups
+testMinimumPowerup :: Int -> Set Powerup -> Test
+testMinimumPowerup nextInt currentPowerups =
+      TestCase (
+        assertBool
+        "Failed to replenish powerups"
+        (Data.Set.size (fst (ensureMinimumPowerupCount currentPowerups nextInt (mkStdGen 1000))) == minPowerupCount)
+        )
+
+
+generateRandomPowerups :: Int -> Set Powerup
+generateRandomPowerups numPowerups =
+  let
+    someXs = [1..numPowerups]
+    someYs = [1..numPowerups]
+  in
+    fromList [
+       RegularPowerup{
+                        powerupId = i,
+                        powerupCircle = Model.Circle{
+                            location = Vector2D (fromIntegral $ someXs !! i) (fromIntegral $ someYs !! i),
+                            -- TODO (low priority): random colour for each powerup
+                            colour = rgbaOfColor yellow,
+                            size = regularPowerupSize},
+                        growthPotential = regularPowerupGrowthPotential
+                    }
+        | i <- [0..(numPowerups-1)]
+    ]
+
+-- Less than min powerups. 
+minimumPowerupsTest1 =
+  testMinimumPowerup 13 (generateRandomPowerups 13)
