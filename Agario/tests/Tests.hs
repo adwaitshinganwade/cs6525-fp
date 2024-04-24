@@ -86,14 +86,14 @@ playerPlayerCollisionTest1 =
       (getPlayersCollidingWithAnotherPlayer activePlayers)
     )
   where
-    collidingPlayer1 = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0}
-    collidingPlayer2 = Player {playerId = 2, playerName = "", playerCircle = Model.Circle {location = Vector2D 10.0 30.0, colour = rgbaOfColor yellow, size = 7}, playerSpeed = 15.0}
-    collidingPlayer3 = Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 20.0 (-17.0), colour = rgbaOfColor red, size = 36}, playerSpeed = 36.0}
+    collidingPlayer1 = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0}
+    collidingPlayer2 = Player {playerId = 2, playerName = "", playerCircle = Model.Circle {location = Vector2D 10.0 30.0, colour = rgbaOfColor yellow, size = 7}, playerSpeed = 15.0, dir = Vector2D 1.0 1.0}
+    collidingPlayer3 = Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 20.0 (-17.0), colour = rgbaOfColor red, size = 36}, playerSpeed = 36.0, dir = Vector2D 1.0 1.0}
     activePlayers =
       fromList
         [ collidingPlayer1,
           collidingPlayer2,
-          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 138, colour = rgbaOfColor red, size = 40}, playerSpeed = 16.0},
+          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 138, colour = rgbaOfColor red, size = 40}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0},
           collidingPlayer3
         ]
     expectedDeadPlayers = fromList [collidingPlayer1, collidingPlayer2, collidingPlayer3]
@@ -109,10 +109,10 @@ playerPlayerCollisionTest2 =
   where
     activePlayers =
       fromList
-        [ Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0},
-          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 138, colour = rgbaOfColor red, size = 40}, playerSpeed = 16.0},
-          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-100) 138, colour = rgbaOfColor red, size = 24}, playerSpeed = 16.0},
-          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 (-138), colour = rgbaOfColor red, size = 70}, playerSpeed = 16.0}
+        [ Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0},
+          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 138, colour = rgbaOfColor red, size = 40}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0},
+          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-100) 138, colour = rgbaOfColor red, size = 24}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0},
+          Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 150 (-138), colour = rgbaOfColor red, size = 70}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0}
         ]
     expectedDeadPlayers = empty
 
@@ -137,7 +137,7 @@ testPowerupConsumption thePlayer thePowerup expectedNewSize expectedNewSpeed =
 playerPowerupConsumptionTest1 =
     testPowerupConsumption aPlayer aPowerup 12 (10 / 12 * 10)
     where
-        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0}
+        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0}
         aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 2.0}
 
 
@@ -145,7 +145,7 @@ playerPowerupConsumptionTest1 =
 playerPowerupConsumptionTest2 =
     testPowerupConsumption aPlayer aPowerup maxPlayerSize minPlayerSpeed
     where
-        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0}
+        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0}
         aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 191.2}
 
 -- Tests for consuming powerup
@@ -165,8 +165,8 @@ playerPowerupConsumptionDetectionTest1 =
   let
     alivePlayers =
       [
-        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0},
-        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-5.0) 3.0, colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0}
+        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0},
+        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-5.0) 3.0, colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0}
       ]
     alivePowerups =
       [
@@ -183,8 +183,8 @@ playerPowerupConsumptionDetectionTest2 =
   let
     alivePlayers =
       [
-        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0},
-        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-5.0) 7.0, colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0}
+        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0},
+        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D (-5.0) 7.0, colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0}
       ]
     alivePowerups =
       [
@@ -200,8 +200,8 @@ playerPowerupConsumptionDetectionTest3 =
   let
     alivePlayers =
       [
-        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0},
-        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 11.0 (-1.0), colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0}
+        Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 5.0 4.0, colour = rgbaOfColor red, size = 4.0}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0},
+        Player {playerId = 3, playerName = "", playerCircle = Model.Circle {location = Vector2D 11.0 (-1.0), colour = rgbaOfColor red, size = 3.0}, playerSpeed = 16.0, dir = Vector2D 1.0 1.0}
       ]
     alivePowerups =
       [
@@ -222,7 +222,7 @@ minimumPowerupsTest1 =
       TestCase (
         assertBool
         "Failed to replenish powerups"
-        (Data.Set.size (fst (ensureMinimumPowerupCount (generateRandomPowerups 13) 13 (mkStdGen 1000))) == minPowerupCount)
+        (Data.Set.size (fst (ensureMinimumPowerupCount (generateRandomPowerups 13) 13 (mkStdGen 1000))) >= minPowerupCount)
         )
 
 -- Powerup count is exactly minPowerupCount

@@ -52,8 +52,21 @@ data Player =  Player {
     playerId :: Int,
     playerCircle :: Circle,
     playerName :: String,
-    playerSpeed :: Float
+    playerSpeed :: Float,
+    dir :: Vector
 } deriving (Show, Eq, Ord)
+
+defaultPlayer =  Player {
+    playerId = 1, 
+    playerName = "", 
+    playerCircle = Model.Circle {
+        location = Vector2D 5.0 4.0, 
+        colour = rgbaOfColor red, 
+        size = 4.0
+        }, 
+    playerSpeed = 10.0,
+    dir = Vector2D 1.0 1.0
+}
 
 data Powerup = RegularPowerup {
    powerupId :: Int,
@@ -187,7 +200,8 @@ generateNewPlayerAtRandomLocation rnGenerator currentPlayers currentPowerups id 
             playerId = id,
             playerName = "",
             playerCircle = newCircle,
-            playerSpeed = defaultXSpeed
+            playerSpeed = defaultXSpeed,
+            dir = Vector2D 1.0 1.0
         }
 
 generateNonconflictingCircle :: StdGen -> Float -> [Circle] -> Circle

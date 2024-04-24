@@ -7,6 +7,8 @@ import System.Random (Random(randomRs), RandomGen, StdGen, mkStdGen)
 import GraphicsUtils (windowHeight, windowWidth)
 import Graphics.Gloss (rgbaOfColor, yellow, green, Picture, pictures)
 import Data.Maybe (fromJust)
+import Graphics.Gloss.Interface.IO.Game (Event (EventMotion))
+import Graphics.Gloss.Interface.Pure.Game
 
 
 
@@ -51,6 +53,7 @@ updateGameState ::Float -> Game -> Game
 updateGameState elapsedSeconds currentState =
     let
         currentPlayers = players currentState
+        mainPlayer = toList currentPlayers !! thePlayer currentState
         currentPowerUps = powerups currentState
         currentNextPowerupId = nextPowerupId currentState
         thisRnGen = rnGen currentState
@@ -78,7 +81,7 @@ updateGameState elapsedSeconds currentState =
         nsDeadPowerups = fromList [snd p | p <- toList playerPowerupPairs]
 
         -- Update the locations of all alive players based on their velocity vectors
-        nsMovedAlivePlayers = fromList [advancePlayer plyr | plyr <- nsAlivePlayers]
+        nsMovedAlivePlayers = fromList [advanceMainPlayer plyr | plyr <- nsAlivePlayers]
 
         -- Check if there are a minimum number of powerups and generate more if needed
         (nsPowerups, nsNextPowerupId) = ensureMinimumPowerupCount (difference currentPowerUps nsDeadPowerups) currentNextPowerupId (mkStdGen $ nextPowerupId currentState)
@@ -91,4 +94,36 @@ updateGameState elapsedSeconds currentState =
             nextPowerupId = nsNextPowerupId,
             eatenPowerups = nsDeadPowerups
         }
+
+
+advanceMainPlayer :: Player -> Player
+advanceMainPlayer currentPlayerState =
+    currentPlayerState{playerCircle = c{location = Vector2D{xComponent = fromIntegral newX, yComponent = fromIntegral newY}}}
+    where
+        currentPlayerSpeed = playerSpeed currentPlayerState
+        c = playerCircle currentPlayerState
+        xDir = xComponent $ dir currentPlayerState
+        yDir = yComponent $ dir currentPlayerState
+        newX = round (xComponent (location c) +  currentPlayerSpeed * xDir) `mod` windowWidth
+        newY = round (yComponent (location c) +  currentPlayerSpeed * yDir) `mod` windowHeight
+
+handleKeyPress :: Event -> Game -> Game
+handleKeyPress (EventKey (SpecialKey pressedKey) Down _ _) currentState =
+    let
+        currentPlayers = players currentState
+        currentPlayerId = thePlayer currentState
+        currentPlayer = toList currentPlayers !! currentPlayerId
+        movedCurrentPlayer =
+            case pressedKey of
+                KeyUp -> currentPlayer {dir = Vector2D 0.0 (-1.0)}
+                KeyDown -> currentPlayer {dir = Vector2D 0.0 1.0}
+                KeyLeft -> currentPlayer {dir = Vector2D (-1.0) 0.0}
+                KeyRight -> currentPlayer {dir = Vector2D 1.0 0.0}
+                _ -> currentPlayer
+        nsPlayers = movedCurrentPlayer : [p | p <- toList currentPlayers, p /= currentPlayer]
+        in
+            currentState {players = fromList nsPlayers}
+
+-- Ignore other events    
+handleKeyPress _ gameState = gameState
 
