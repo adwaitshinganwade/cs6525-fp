@@ -32,7 +32,7 @@ minPowerupCount :: Int
 minPowerupCount = 10
 
 minComputerPlayerCount :: Int
-minComputerPlayerCount = 2
+minComputerPlayerCount = 3
 
 enumerate :: [b] -> [(Integer, b)]
 enumerate = zip [0..]
@@ -90,10 +90,12 @@ data Game = Agario {
 
 drawPlayer :: Player -> Picture
 drawPlayer player =
-    drawASolidCircle radius x y $ makeColor c1 c2 c3 c4
+    pictures [drawASolidCircle radius x y $ makeColor c1 c2 c3 c4,
+    translateAsPerWorldCoordinates x (y + radius) (scale 0.15 0.15 $ Text name)]
     where
         c = playerCircle player
         radius = size c
+        name = playerName player
         currentLocation = location c
         x = xComponent currentLocation
         y = yComponent currentLocation
@@ -171,13 +173,13 @@ ensureMinimumPowerupCount alivePowerups nextId randomNumberGenerator =
                 let
                 randomXs = take neededRefill $ randomRs (0, windowWidth - 1) randomNumberGenerator
                 randomYs = take neededRefill $ randomRs (0, windowHeight - 1) randomNumberGenerator
+                pLoc =  Vector2D (fromIntegral $ head randomXs) (fromIntegral $ last randomYs)
                 refilledPowerups = [
                     RegularPowerup{
                         powerupId = nextId,
                         powerupCircle = Model.Circle{
-                            location = Vector2D (fromIntegral $ head randomXs) (fromIntegral $ head randomYs),
-                            -- TODO (low priority): random colour for each powerup
-                            colour = rgbaOfColor yellow,
+                            location = pLoc,
+                            colour = rgbaOfColor $ chooseRandomColor pLoc,
                             size = regularPowerupSize},
                         growthPotential = regularPowerupGrowthPotential
                     }]
@@ -236,13 +238,33 @@ generateNonconflictingCircle rnGenerator radius circles =
 generateRandomCircle :: StdGen -> Float -> Circle
 generateRandomCircle rnGenerator radius =
     let
-        pX = take 100 $ randomRs (0, windowWidth - 1) rnGenerator
-        pY = take 50 $ randomRs (0, windowHeight - 1) rnGenerator
-        pLoc = Vector2D (fromIntegral $ last pX) (fromIntegral $ last pY)
+        pX = take 250 $ randomRs (0, windowWidth - 1) rnGenerator
+        pY = take 400 $ randomRs (0, windowHeight - 1) rnGenerator
+        pLoc = Vector2D (fromIntegral $ head pX) (fromIntegral $ last pY)
     in
         Model.Circle {
             location = pLoc,
-            -- TODO: generate player with random colour every time
-            colour = rgbaOfColor green,
+            colour = rgbaOfColor $ chooseRandomColor pLoc,
             size = radius
         }
+
+chooseRandomColor :: Vector -> Color
+chooseRandomColor v =
+    let 
+        x = xComponent v
+        y = yComponent v
+        decisionVar = x + y
+    in 
+        if decisionVar < 100.0 then red
+        else if decisionVar < 250.0 then black
+        else if decisionVar < 300.0 then green
+        else if decisionVar < 350.0 then blue
+        else if decisionVar < 400.0 then yellow
+        else if decisionVar < 450.0 then cyan
+        else if decisionVar < 500.0 then orange
+        else if decisionVar < 550.0 then magenta
+        else if decisionVar < 600.0 then violet
+        else if decisionVar < 650.0 then rose
+        else if decisionVar < 700.0 then aquamarine
+        else if decisionVar < 750.0 then dark $ dark yellow 
+        else azure

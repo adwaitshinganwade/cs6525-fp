@@ -1,10 +1,10 @@
 module Controller where
 import Model
 import Data.Set (Set, fromList, toList, empty, insert, difference, member, size)
-import Data.List (delete, length)
+import Data.List (delete, length, last)
 import qualified Data.Map
 import System.Random (Random(randomRs), RandomGen, StdGen, mkStdGen)
-import GraphicsUtils (windowHeight, windowWidth)
+import GraphicsUtils (windowHeight, windowWidth, translateAsPerWorldCoordinates)
 import Graphics.Gloss (rgbaOfColor, yellow, green, Picture, pictures)
 import Data.Maybe (fromJust)
 import Graphics.Gloss.Interface.IO.Game (Event (EventMotion))
@@ -15,12 +15,15 @@ import Data.Time.Clock.POSIX (getPOSIXTime)
 
 render :: Game -> Picture
 render game =
-    pictures $ map drawPlayer (toList $ players game) ++ map drawPowerup (toList $ powerups game)
+    if any (\x -> playerId x == 0) (toList (deadPlayers game)) then
+        translateAsPerWorldCoordinates (fromIntegral (windowWidth `div` 2 - 200)) (fromIntegral(windowHeight `div` 2)) (scale 0.5 0.5 $ Text "Game over!")
+        else
+        pictures $ map drawPlayer (toList $ players game) ++ map drawPowerup (toList $ powerups game)
 
 initAgario :: StdGen -> Game
 initAgario rnGenerator = Agario {
     players = fromList [
-       generateNewPlayerAtRandomLocation rnGenerator empty empty 0
+       (generateNewPlayerAtRandomLocation rnGenerator empty empty 0) {playerName = "You"}
     ],
     deadPlayers = empty,
     eatenPowerups = empty,
@@ -91,7 +94,7 @@ updateGameState elapsedSeconds currentState =
             nsMovedAlivePlayers = fromList [advanceMainPlayer plyr | plyr <- changeDirectionOfComputerPlayers nsAlivePlayers elapsedSeconds]
 
             -- Check if there are a minimum number of powerups and generate more if needed
-            (nsPowerups, nsNextPowerupId) = ensureMinimumPowerupCount (difference currentPowerUps nsDeadPowerups) currentNextPowerupId (mkStdGen currentNextPowerupId)
+            (nsPowerups, nsNextPowerupId) = ensureMinimumPowerupCount (difference currentPowerUps nsDeadPowerups) currentNextPowerupId (mkStdGen $ round (xComponent (location (playerCircle $ last nsAlivePlayers))))
 
             -- Check if there are a minimum number of computer players and generate more if needed
             (nsAllPlayers, nsNextPlayerId) = createComputerPlayerIfCountBelowMin nsMovedAlivePlayers (difference currentPowerUps nsDeadPowerups) currentNextPlayerId (mkStdGen currentNextPlayerId)
