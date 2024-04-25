@@ -12,7 +12,7 @@ import Graphics.Gloss.Interface.Pure.Game
 main :: IO ()
 main = 
     do 
-        play (window "Agario") background 30 (initAgario $ mkStdGen 2000) render handleInput update
+        play (window "Agario") background 24 (initAgario $ mkStdGen 2000) render handleInput update
         where
             update :: Float -> Game -> Game
             update = updateGameState

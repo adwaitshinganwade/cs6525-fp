@@ -1,7 +1,7 @@
 module Controller where
 import Model
-import Data.Set (Set, fromList, toList, empty, insert, difference)
-import Data.List (delete)
+import Data.Set (Set, fromList, toList, empty, insert, difference, member, size)
+import Data.List (delete, length)
 import qualified Data.Map
 import System.Random (Random(randomRs), RandomGen, StdGen, mkStdGen)
 import GraphicsUtils (windowHeight, windowWidth)
@@ -9,6 +9,7 @@ import Graphics.Gloss (rgbaOfColor, yellow, green, Picture, pictures)
 import Data.Maybe (fromJust)
 import Graphics.Gloss.Interface.IO.Game (Event (EventMotion))
 import Graphics.Gloss.Interface.Pure.Game
+import Data.Time.Clock.POSIX (getPOSIXTime)
 
 
 
@@ -51,49 +52,59 @@ advancePlayer currentPlayerState =
 
 updateGameState ::Float -> Game -> Game
 updateGameState elapsedSeconds currentState =
-    let
-        currentPlayers = players currentState
-        mainPlayer = toList currentPlayers !! thePlayer currentState
-        currentPowerUps = powerups currentState
-        currentNextPowerupId = nextPowerupId currentState
-        thisRnGen = rnGen currentState
+    if any (\x -> playerId x == 0) (toList (deadPlayers currentState)) then
+        currentState {players = empty, powerups = empty}
+    else
+        let
+            currentPlayers = players currentState
+            mainPlayer = toList currentPlayers !! thePlayer currentState
+            currentPowerUps = powerups currentState
+            currentNextPowerupId = nextPowerupId currentState
+            currentNextPlayerId = nextPlayerId currentState
+            thisRnGen = rnGen currentState
 
-        -- Detect player-player collisions and populate the list of dead players
-        nsDeadPlayers = getPlayersCollidingWithAnotherPlayer currentPlayers
+            -- Detect player-player collisions and populate the list of dead players
+            nsDeadPlayers = getPlayersCollidingWithAnotherPlayer currentPlayers
 
-        nsNonDeadPlayers = toList $ difference currentPlayers nsDeadPlayers
+            nsNonDeadPlayers = toList $ difference currentPlayers nsDeadPlayers
 
-        -- For each alive player, detect player-powerup collision
-        playerPowerupPairs = getEatenPowerups nsNonDeadPlayers (toList currentPowerUps)
+            -- For each alive player, detect player-powerup collision
+            playerPowerupPairs = getEatenPowerups nsNonDeadPlayers (toList currentPowerUps)
 
-        -- Convert player-powerup pairs to a map
-        playersThatWillGrow = Data.Map.fromList (toList playerPowerupPairs)
+            -- Convert player-powerup pairs to a map
+            playersThatWillGrow = Data.Map.fromList (toList playerPowerupPairs)
 
-        --  Generate list of player that will be alive in the next step (and grow player that eat a powerup)
-        nsAlivePlayers = [
-                if Data.Map.member plyr playersThatWillGrow
-                then playerEatsPowerup plyr (fromJust $ Data.Map.lookup plyr playersThatWillGrow)
-                else plyr
-                | plyr <- nsNonDeadPlayers
-            ]
+            --  Generate list of player that will be alive in the next step (and grow player that eat a powerup)
+            nsAlivePlayers = [
+                    if Data.Map.member plyr playersThatWillGrow
+                    then playerEatsPowerup plyr (fromJust $ Data.Map.lookup plyr playersThatWillGrow)
+                    else plyr
+                    | plyr <- nsNonDeadPlayers
+                ]
 
-        -- Add dead powerups to to the set of eaten powerups
-        nsDeadPowerups = fromList [snd p | p <- toList playerPowerupPairs]
+            -- Add dead powerups to to the set of eaten powerups
+            nsDeadPowerups = fromList [snd p | p <- toList playerPowerupPairs]
 
-        -- Update the locations of all alive players based on their velocity vectors
-        nsMovedAlivePlayers = fromList [advanceMainPlayer plyr | plyr <- nsAlivePlayers]
+            -- Change direction of computer players randomly based on time
 
-        -- Check if there are a minimum number of powerups and generate more if needed
-        (nsPowerups, nsNextPowerupId) = ensureMinimumPowerupCount (difference currentPowerUps nsDeadPowerups) currentNextPowerupId (mkStdGen $ nextPowerupId currentState)
+            -- Update the locations of all alive players based on their velocity vectors
+            nsMovedAlivePlayers = fromList [advanceMainPlayer plyr | plyr <- changeDirectionOfComputerPlayers nsAlivePlayers elapsedSeconds]
 
-    in
-        currentState {
-            players = nsMovedAlivePlayers,
-            deadPlayers = nsDeadPlayers,
-            powerups = nsPowerups,
-            nextPowerupId = nsNextPowerupId,
-            eatenPowerups = nsDeadPowerups
-        }
+            -- Check if there are a minimum number of powerups and generate more if needed
+            (nsPowerups, nsNextPowerupId) = ensureMinimumPowerupCount (difference currentPowerUps nsDeadPowerups) currentNextPowerupId (mkStdGen currentNextPowerupId)
+
+            -- Check if there are a minimum number of computer players and generate more if needed
+            (nsAllPlayers, nsNextPlayerId) = createComputerPlayerIfCountBelowMin nsMovedAlivePlayers (difference currentPowerUps nsDeadPowerups) currentNextPlayerId (mkStdGen currentNextPlayerId)
+
+        in
+            currentState {
+                players = nsAllPlayers,
+                nextPlayerId = nsNextPlayerId,
+                deadPlayers = nsDeadPlayers,
+                powerups = nsPowerups,
+                nextPowerupId = nsNextPowerupId,
+                eatenPowerups = nsDeadPowerups
+            }
 
 
 advanceMainPlayer :: Player -> Player
@@ -109,21 +120,52 @@ advanceMainPlayer currentPlayerState =
 
 handleKeyPress :: Event -> Game -> Game
 handleKeyPress (EventKey (SpecialKey pressedKey) Down _ _) currentState =
-    let
-        currentPlayers = players currentState
-        currentPlayerId = thePlayer currentState
-        currentPlayer = toList currentPlayers !! currentPlayerId
-        movedCurrentPlayer =
-            case pressedKey of
-                KeyUp -> currentPlayer {dir = Vector2D 0.0 (-1.0)}
-                KeyDown -> currentPlayer {dir = Vector2D 0.0 1.0}
-                KeyLeft -> currentPlayer {dir = Vector2D (-1.0) 0.0}
-                KeyRight -> currentPlayer {dir = Vector2D 1.0 0.0}
-                _ -> currentPlayer
-        nsPlayers = movedCurrentPlayer : [p | p <- toList currentPlayers, p /= currentPlayer]
-        in
+    if any (\x -> playerId x == 0) (toList (deadPlayers currentState)) then
+        currentState {players = empty, powerups = empty}
+    else
+        let
+            currentPlayers = players currentState
+            currentPlayerId = thePlayer currentState
+            currentPlayer = toList currentPlayers !! currentPlayerId
+            movedCurrentPlayer =
+                case pressedKey of
+                    KeyUp -> currentPlayer {dir = Vector2D 0.0 (-1.0)}
+                    KeyDown -> currentPlayer {dir = Vector2D 0.0 1.0}
+                    KeyLeft -> currentPlayer {dir = Vector2D (-1.0) 0.0}
+                    KeyRight -> currentPlayer {dir = Vector2D 1.0 0.0}
+                    _ -> currentPlayer
+            nsPlayers = movedCurrentPlayer : [p | p <- toList currentPlayers, p /= currentPlayer]
+            in
             currentState {players = fromList nsPlayers}
 
 -- Ignore other events    
 handleKeyPress _ gameState = gameState
 
+
+changeDirectionOfComputerPlayers :: [Player] -> Float -> [Player]
+changeDirectionOfComputerPlayers allPlayers elapsedTime =
+    [if playerId p /= 0 then changeDirectionOfComputerPlayer p else p | p <- allPlayers]
+
+changeDirectionOfComputerPlayer :: Player -> Player
+changeDirectionOfComputerPlayer currentPlayer =
+    let 
+        loc = location (playerCircle currentPlayer)
+        pX = xComponent loc
+        pY = yComponent loc
+        changeX = round pX `mod` 50 == 0 || round pX `mod` 80 == 0
+        changeY = round pY `mod` 50 == 0 || round pY `mod` 75 == 0
+    in
+        changeSpeedDirection currentPlayer changeX changeY
+    
+
+
+changeSpeedDirection :: Player -> Bool -> Bool -> Player
+changeSpeedDirection aPlayer changeX changeY =
+    let
+        playerDir = dir aPlayer
+        xSpeed = xComponent playerDir
+        ySpeed = yComponent playerDir
+        newXSpeed = if changeX then (-xSpeed) else xSpeed
+        newYSpeed = if changeY then (-ySpeed) else ySpeed
+    in
+        aPlayer {dir = Vector2D newXSpeed newYSpeed}

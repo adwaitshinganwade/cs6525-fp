@@ -10,7 +10,7 @@ import Data.List (delete)
 
 -- | The default x-velocity for player
 defaultXSpeed :: Float
-defaultXSpeed = 6.0
+defaultXSpeed = 8.0
 
 -- | The default y-velocity for player
 defaultYSpeed  = 0
@@ -26,10 +26,13 @@ maxPlayerSize :: Float
 maxPlayerSize = 200.0
 
 minPlayerSpeed :: Float
-minPlayerSpeed = 1.0
+minPlayerSpeed = 5.0
 
 minPowerupCount :: Int
-minPowerupCount = 5
+minPowerupCount = 10
+
+minComputerPlayerCount :: Int
+minComputerPlayerCount = 2
 
 enumerate :: [b] -> [(Integer, b)]
 enumerate = zip [0..]
@@ -64,7 +67,7 @@ defaultPlayer =  Player {
         colour = rgbaOfColor red, 
         size = 4.0
         }, 
-    playerSpeed = 10.0,
+    playerSpeed = 20.0,
     dir = Vector2D 1.0 1.0
 }
 
@@ -130,7 +133,7 @@ getPlayersCollidingWithAnotherPlayer currentPlayers =
 
 playerEatsPowerup :: Player -> Powerup -> Player
 playerEatsPowerup thePlayer thePowerup =
-    thePlayer{playerCircle = (playerCircle thePlayer){size = min newSize maxPlayerSize}, playerSpeed = max (currentSize / newSize * currentSpeed) minPlayerSpeed}
+    thePlayer{playerCircle = (playerCircle thePlayer){size = min newSize maxPlayerSize}, playerSpeed = max (currentSpeed - currentSize / newSize * currentSpeed) minPlayerSpeed}
     where
         currentSize = size $ playerCircle thePlayer
         growth = growthPotential thePowerup
@@ -170,21 +173,37 @@ ensureMinimumPowerupCount alivePowerups nextId randomNumberGenerator =
                 randomYs = take neededRefill $ randomRs (0, windowHeight - 1) randomNumberGenerator
                 refilledPowerups = [
                     RegularPowerup{
-                        powerupId = nextId + i,
+                        powerupId = nextId,
                         powerupCircle = Model.Circle{
-                            location = Vector2D (fromIntegral $ randomXs !! i) (fromIntegral $ randomYs !! i),
+                            location = Vector2D (fromIntegral $ head randomXs) (fromIntegral $ head randomYs),
                             -- TODO (low priority): random colour for each powerup
                             colour = rgbaOfColor yellow,
                             size = regularPowerupSize},
                         growthPotential = regularPowerupGrowthPotential
-                    }
-                    | i <- [0..(neededRefill-1)]]
+                    }]
                     in
-                    (Set.union (fromList refilledPowerups)  alivePowerups, nextId + neededRefill)
+                    (Set.union (fromList refilledPowerups)  alivePowerups, nextId + 1)
 
             else
                 (alivePowerups, nextId)
 
+createComputerPlayerIfCountBelowMin :: Set Player -> Set Powerup -> Int -> StdGen -> (Set Player, Int)
+createComputerPlayerIfCountBelowMin alivePlayers alivePowerups nextId randomNumberGenerator =
+    -- -1 to discount the real player (currently it's assumed that there will be only one real player)
+    let neededRefill = minComputerPlayerCount - (Set.size alivePlayers - 1)
+    in
+    if neededRefill > 0
+        then
+            let
+                randomXs = take neededRefill $ randomRs (0, windowWidth - 1) randomNumberGenerator
+                randomYs = take neededRefill $ randomRs (0, windowHeight - 1) randomNumberGenerator
+                newPlayers = [
+                        generateNewPlayerAtRandomLocation randomNumberGenerator alivePlayers alivePowerups nextId
+                    ]
+            in 
+                (Set.union alivePlayers (fromList newPlayers), nextId + 1)
+        else
+            (alivePlayers, nextId)
 
 --Generates a player at a random initial position such that it doesn't collide with any other players or powerups
 generateNewPlayerAtRandomLocation :: StdGen -> Set Player -> Set Powerup -> Int -> Player
