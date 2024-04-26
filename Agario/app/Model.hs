@@ -7,30 +7,34 @@ import Data.Set (Set, fromList, empty, toList, insert)
 import qualified Data.Set as Set
 import System.Random (StdGen, Random (randomRs))
 import Data.List (delete)
+import qualified Model
 
 -- | The default x-velocity for player
 defaultXSpeed :: Float
 defaultXSpeed = 8.0
-
--- | The default y-velocity for player
-defaultYSpeed  = 0
-
+-- | The default size of a new player on creation
 defaultPlayerSize = 10.0
 
 -- | The radius of the circle for a regular powerup
 regularPowerupSize = 10
+
+-- | The size boost that a powerup gives a player on consumption
 regularPowerupGrowthPotential :: Float
 regularPowerupGrowthPotential = 2.0
 
+-- | Maximum size of a player
 maxPlayerSize :: Float
 maxPlayerSize = 200.0
 
+-- | Minimum speed of a player (the game become unplayable if this value is too low!)
 minPlayerSpeed :: Float
 minPlayerSpeed = 5.0
 
+-- | Minimum number of powerups that should be present in the world
 minPowerupCount :: Int
 minPowerupCount = 10
 
+-- | Minimum number of computer players that should be present in the world
 minComputerPlayerCount :: Int
 minComputerPlayerCount = 3
 
@@ -80,14 +84,17 @@ data Powerup = RegularPowerup {
 data Game = Agario {
     thePlayer :: Int,
     players :: Set Player,
+    -- A workaround to not "maintain" state. This field stores the id that should be used when the next player is created.
     nextPlayerId :: Int,
     deadPlayers :: Set Player,
     powerups :: Set Powerup,
+    -- A workaround to not "maintain" state. This field stores the id that should be used when the next powerup is generated.
     nextPowerupId :: Int,
     eatenPowerups :: Set Powerup,
     rnGen :: StdGen
 }
 
+-- Transforms a player record into a Gloss picture 
 drawPlayer :: Player -> Picture
 drawPlayer player =
     pictures [drawASolidCircle radius x y $ makeColor c1 c2 c3 c4,
@@ -101,6 +108,7 @@ drawPlayer player =
         y = yComponent currentLocation
         (c1, c2, c3, c4) = colour c
 
+-- Transforms a powerup record into a Gloss picture
 drawPowerup :: Powerup -> Picture
 drawPowerup powerup =
     case powerup of
@@ -113,6 +121,7 @@ drawPowerup powerup =
             y = yComponent currentLocation
             (c1, c2, c3, c4) = colour c
 
+-- Determines if two circles overlap
 checkCircleIntersection :: Circle -> Circle -> Bool
 checkCircleIntersection aCircle anotherCircle =
     let
@@ -133,6 +142,8 @@ getPlayersCollidingWithAnotherPlayer currentPlayers =
     in
         fromList [p | p <- listOfAllPlayers, q <- listOfAllPlayers, p /= q, checkCircleIntersection (playerCircle p) (playerCircle q)]
 
+-- Takes in a player and a powerup that it eats. Grows the player's size by the growth potential of the powerup and reduces its speed
+-- a function of its old and new sizes. 
 playerEatsPowerup :: Player -> Powerup -> Player
 playerEatsPowerup thePlayer thePowerup =
     thePlayer{playerCircle = (playerCircle thePlayer){size = min newSize maxPlayerSize}, playerSpeed = max (currentSpeed - currentSize / newSize * currentSpeed) minPlayerSpeed}
@@ -161,8 +172,8 @@ getEatenPowerup aPlayer (p:ps) =
         getEatenPowerup aPlayer ps
         
 
--- Ensures that there are at least Controller.minPowerupCount powerups in the world. 
--- Generates random powerups as needed. 
+-- Ensures that there are at least Model.minPowerupCount powerups in the world. 
+-- Generates random powerups as needed, one at a time. 
 ensureMinimumPowerupCount :: Set Powerup -> Int -> StdGen -> (Set Powerup, Int)
 ensureMinimumPowerupCount alivePowerups nextId randomNumberGenerator =
     let
@@ -189,6 +200,8 @@ ensureMinimumPowerupCount alivePowerups nextId randomNumberGenerator =
             else
                 (alivePowerups, nextId)
 
+-- Generates a new computer player, one at a time, if the count of computer players falls below
+-- Model.minComputerPlayerCount. 
 createComputerPlayerIfCountBelowMin :: Set Player -> Set Powerup -> Int -> StdGen -> (Set Player, Int)
 createComputerPlayerIfCountBelowMin alivePlayers alivePowerups nextId randomNumberGenerator =
     -- -1 to discount the real player (currently it's assumed that there will be only one real player)
@@ -225,6 +238,9 @@ generateNewPlayerAtRandomLocation rnGenerator currentPlayers currentPowerups id 
             dir = Vector2D 1.0 1.0
         }
 
+-- Helper for the above function. Generates a new circle having the
+-- specified radius such that it doesn't conflict with any circle in
+-- the supplied list of circles
 generateNonconflictingCircle :: StdGen -> Float -> [Circle] -> Circle
 generateNonconflictingCircle rnGenerator radius circles =
     let
@@ -248,6 +264,8 @@ generateRandomCircle rnGenerator radius =
             size = radius
         }
 
+-- A (not so random) function that outputs a color
+-- based on the position of a circle. 
 chooseRandomColor :: Vector -> Color
 chooseRandomColor v =
     let 

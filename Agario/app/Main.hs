@@ -19,16 +19,3 @@ main =
             update = updateGameState
             handleInput :: Event -> Game -> Game
             handleInput = handleKeyPress
-
-
-        -- simulate (window "Agario") background 30 (initAgario $ mkStdGen 2000) render update
-        -- where
-        --     update :: ViewPort -> Float -> Game -> Game
-        --     -- update _ = advancePlayers
-        --     update _ = updateGameState
-
-        
-    -- animate (window "Agario") background frame
-    -- where
-    --     frame :: Float -> Picture
-    --     frame seconds = render $ advancePlayers seconds initAgario

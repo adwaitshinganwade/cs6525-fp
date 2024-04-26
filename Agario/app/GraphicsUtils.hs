@@ -1,7 +1,6 @@
 module GraphicsUtils where
 import Graphics.Gloss
 
--- TODO: Dynamically center the window (based on native screen resolution)
 -- Setting up the main window
 windowWidth, windowHeight, topleftX, topleftY :: Int
 windowWidth = 800
@@ -22,7 +21,7 @@ translateAsPerWorldCoordinates x y picture =
     let xTranslation = worldXCenter - x
         yTranslation = worldYCenter - y
     in
-        translate (-xTranslation) (yTranslation) picture
+        translate (-xTranslation) yTranslation picture
     where
         worldXCenter = fromIntegral windowHeight / 2
         worldYCenter = fromIntegral windowWidth / 2

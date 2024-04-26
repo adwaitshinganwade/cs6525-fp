@@ -13,13 +13,16 @@ import Data.Time.Clock.POSIX (getPOSIXTime)
 
 
 
+-- Transforms the current state of the game to a visual representation
 render :: Game -> Picture
 render game =
+    -- If the human player (always has ID 0) appears in the list of dead players, the game is over
     if any (\x -> playerId x == 0) (toList (deadPlayers game)) then
         translateAsPerWorldCoordinates (fromIntegral (windowWidth `div` 2 - 200)) (fromIntegral(windowHeight `div` 2)) (scale 0.5 0.5 $ Text "Game over!")
         else
         pictures $ map drawPlayer (toList $ players game) ++ map drawPowerup (toList $ powerups game)
 
+-- Initializes the game by generating the human player at some random location
 initAgario :: StdGen -> Game
 initAgario rnGenerator = Agario {
     players = fromList [
@@ -27,7 +30,6 @@ initAgario rnGenerator = Agario {
     ],
     deadPlayers = empty,
     eatenPowerups = empty,
-        -- TODO : Manage the next powerup index
         powerups = fst $ ensureMinimumPowerupCount empty 0 rnGenerator,
     thePlayer = 0,
     nextPlayerId = 1,
@@ -35,26 +37,12 @@ initAgario rnGenerator = Agario {
     rnGen = mkStdGen 2432
     }
 
-advancePlayers :: Float -> Game -> Game
-advancePlayers elapsedSeconds currentState =
-    currentState {players = fromList movedPlayers}
-    where
-        movedPlayers = map advancePlayer $ toList (players currentState)
 
-
-advancePlayer :: Player -> Player
-advancePlayer currentPlayerState =
-    currentPlayerState{playerCircle = c{location = Vector2D{xComponent = fromIntegral newX, yComponent = fromIntegral newY}}}
-    where
-        currentPlayerSpeed = playerSpeed currentPlayerState
-        c = playerCircle currentPlayerState
-        newX = round (xComponent (location c) +  currentPlayerSpeed) `mod` windowWidth
-        newY = round (yComponent (location c) +  currentPlayerSpeed) `mod` windowHeight
-
-
-
+-- The main game loop. Generates the state of the game for the next frame based on the current state
 updateGameState ::Float -> Game -> Game
 updateGameState elapsedSeconds currentState =
+    -- If the human player (having ID 0) appears in the list of dead players, retain the same state
+    -- save for clearing the list of active players and powerups
     if any (\x -> playerId x == 0) (toList (deadPlayers currentState)) then
         currentState {players = empty, powerups = empty}
     else
@@ -77,7 +65,7 @@ updateGameState elapsedSeconds currentState =
             -- Convert player-powerup pairs to a map
             playersThatWillGrow = Data.Map.fromList (toList playerPowerupPairs)
 
-            --  Generate list of player that will be alive in the next step (and grow player that eat a powerup)
+            --  Generate list of players that will be alive in the next step (and grow players that ate a powerup)
             nsAlivePlayers = [
                     if Data.Map.member plyr playersThatWillGrow
                     then playerEatsPowerup plyr (fromJust $ Data.Map.lookup plyr playersThatWillGrow)
@@ -88,10 +76,8 @@ updateGameState elapsedSeconds currentState =
             -- Add dead powerups to to the set of eaten powerups
             nsDeadPowerups = fromList [snd p | p <- toList playerPowerupPairs]
 
-            -- Change direction of computer players randomly based on time
-
             -- Update the locations of all alive players based on their velocity vectors
-            nsMovedAlivePlayers = fromList [advanceMainPlayer plyr | plyr <- changeDirectionOfComputerPlayers nsAlivePlayers elapsedSeconds]
+            nsMovedAlivePlayers = fromList [advancePlayer plyr | plyr <- changeDirectionOfComputerPlayers nsAlivePlayers elapsedSeconds]
 
             -- Check if there are a minimum number of powerups and generate more if needed
             (nsPowerups, nsNextPowerupId) = ensureMinimumPowerupCount (difference currentPowerUps nsDeadPowerups) currentNextPowerupId (mkStdGen $ round (xComponent (location (playerCircle $ last nsAlivePlayers))))
@@ -110,8 +96,9 @@ updateGameState elapsedSeconds currentState =
             }
 
 
-advanceMainPlayer :: Player -> Player
-advanceMainPlayer currentPlayerState =
+-- Advance a player based on their current speed and the direction of movement (defined by the field dir)
+advancePlayer :: Player -> Player
+advancePlayer currentPlayerState =
     currentPlayerState{playerCircle = c{location = Vector2D{xComponent = fromIntegral newX, yComponent = fromIntegral newY}}}
     where
         currentPlayerSpeed = playerSpeed currentPlayerState
@@ -144,11 +131,14 @@ handleKeyPress (EventKey (SpecialKey pressedKey) Down _ _) currentState =
 -- Ignore other events    
 handleKeyPress _ gameState = gameState
 
-
+-- Driver function that changes the direction of motion (the velocity vector) of computer players.
+-- This gives the game a more realistic feel since all computer players would follow a deterministic
+-- path otherwise
 changeDirectionOfComputerPlayers :: [Player] -> Float -> [Player]
 changeDirectionOfComputerPlayers allPlayers elapsedTime =
     [if playerId p /= 0 then changeDirectionOfComputerPlayer p else p | p <- allPlayers]
 
+-- Determines if the X or Y component of a player's should be changed based on some random math
 changeDirectionOfComputerPlayer :: Player -> Player
 changeDirectionOfComputerPlayer currentPlayer =
     let 
