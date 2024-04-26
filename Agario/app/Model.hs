@@ -7,7 +7,6 @@ import Data.Set (Set, fromList, empty, toList, insert)
 import qualified Data.Set as Set
 import System.Random (StdGen, Random (randomRs))
 import Data.List (delete)
-import qualified Model
 
 -- | The default x-velocity for player
 defaultXSpeed :: Float
