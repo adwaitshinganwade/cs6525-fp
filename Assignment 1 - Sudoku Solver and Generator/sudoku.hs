@@ -1,11 +1,14 @@
-import Data.List (transpose)
+module SudokuSolver where
+import Data.List (transpose, permutations, find)
 import Data.Sequence (chunksOf)
+import System.Random
+import Data.Time.Clock.POSIX (getPOSIXTime)
 
 -- number of rows
-m :: Int = 2
+m :: Int = 3
 
 -- number of columns
-n :: Int = 2
+n :: Int = 3
 
 candidates :: [Int] = [1 .. m*n]
 
@@ -108,7 +111,58 @@ solveSudoku' board row col
     | col == m*n = solveSudoku' board (row + 1) 0
     -- At some cell on the board. Fill it if it's empty
     | cellEmpty board row col =
-        let solutions = [solveSudoku' x row (col + 1) | x <- generateAllValidPossibilities board row col]
-        in if null solutions then [[]] else head solutions
+        case find (\sol -> not $ null sol) [solveSudoku' x row (col + 1) | x <- generateAllValidPossibilities board row col] of
+            Just solution -> solution
+            Nothing -> []
     | otherwise = solveSudoku' board row (col + 1)
 
+{-
+    GENERATOR
+-}
+
+-- maximum number of empty cells
+emptyCells :: Int = 40
+
+generateSudokuPuzzle :: Int -> StdGen -> [[Int]]
+generateSudokuPuzzle numBlankCells rnGen =
+    let
+        (validBoard, couldGenerate) = generateAValidSudokuBoard generateEmptySudokuBoard 0 0
+        randomNums = take (m*n*m*n) $ randomRs (0, m*n-1) rnGen
+        rowIdxs = take numBlankCells randomNums
+        colIdxs = take numBlankCells $ drop numBlankCells randomNums
+        blankCellIdxs = zip rowIdxs colIdxs
+    in
+        if couldGenerate then
+            foldl (\config cellIdx  -> uncurry (fillCellAndGetBoard config) cellIdx 0) validBoard blankCellIdxs
+        else
+            []
+
+generateAValidSudokuBoard :: [[Int]] -> Int -> Int -> ([[Int]], Bool)
+generateAValidSudokuBoard currentBoard nextRowToGenerate nextColToGenerate
+  | nextRowToGenerate == m*n = (currentBoard, True)
+  | nextColToGenerate == m*n = generateAValidSudokuBoard currentBoard (nextRowToGenerate + 1) 0
+  | otherwise = let
+                    nextValidConfigurations = generateAllValidPossibilities currentBoard nextRowToGenerate nextColToGenerate
+                in
+                if null nextValidConfigurations
+                    then
+                        (currentBoard, False)
+                    else
+                        case find (\config -> snd config && checkValidityOfAllCells (fst config) nextRowToGenerate) [
+                            generateAValidSudokuBoard possibility nextRowToGenerate (nextColToGenerate + 1)
+                            | possibility <- nextValidConfigurations] of
+                                Just (vBoard, vTruth) -> (vBoard, True)
+                                Nothing -> (currentBoard, False)
+
+checkValidityOfAllCells :: [[Int]] -> Int -> Bool
+checkValidityOfAllCells board tillRow =
+        all (\x -> x) [cellValueValid row col board | row <- [0..tillRow], col <- [0..(m*n-1)]]
+
+
+generateEmptySudokuBoard :: [[Int]]
+generateEmptySudokuBoard =
+    replicate (m*n) (replicate (n*m) 0)
+
+generatePuzzle = do
+    seed <- round <$> getPOSIXTime
+    mapM_ print (generateSudokuPuzzle emptyCells (mkStdGen seed))
