@@ -13,7 +13,7 @@ main :: IO ()
 main = 
     do 
         seed <- round <$> getPOSIXTime
-        play (window "Agario") background 24 (initAgario $ mkStdGen seed) render handleInput update
+        play (window "Agario") background 30 (initAgario $ mkStdGen seed) render handleInput update
         where
             update :: Float -> Game -> Game
             update = updateGameState
