@@ -28,3 +28,4 @@ To run the built executable, run ```cabal run```. For convenience, the Linux exe
 ## Design Decisions ##
 - An add-on to the game was adding networking support to it. This could not be done due to time contraints. However, the code has been written following the MVC design pattern. We therefore have the provision to convert it into a client-server game.
 - New players are generated such that they don't collide with other players and powerups. New powerups are created at random locations, which can lead to overlapping powerups.  
+- The logic that handles the physics of the game has been unit-tested. The tests can be found in ```tests/Tests.hs```. Tests can be launched using ```cabal test```. 
