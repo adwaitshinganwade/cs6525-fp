@@ -2,6 +2,8 @@ Both the Sudoku solver and generator can be run using ```ghci```. For both, the 
 ## Sudoku Solver ##
 The solver can be run through a terminal opened in the directory containing ```Sudoku.hs```.
 
+```ghci>``` :l sudoku.hs
+
 ```ghci>``` solveSudoku \<nested-lists-representing-puzzle\>
 
 e.g.
@@ -13,7 +15,7 @@ Output
 [[3,8,2,7,1,5,4,6,9],[4,7,5,6,3,9,2,8,1],[9,1,6,4,2,8,7,3,5],[2,4,9,3,7,6,1,5,8],[7,3,8,5,4,1,9,2,6],[6,5,1,8,9,2,3,4,7],[5,2,7,1,8,3,6,9,4],[8,9,4,2,6,7,5,1,3],[1,6,3,9,5,4,8,7,2]]
 
 ## Sudoku Generator ##
-The generator can be run through a terminal opened in the directory containing ```Sudoku.hs```.
+The generator can be run through a terminal opened in the directory containing ```sudoku.hs```.
 
 ```ghci>``` generatePuzzle
 
