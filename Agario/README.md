@@ -23,7 +23,9 @@ The game has been built with the following:
 
 To build the game, run the following command in a terminal opened in the directory containing ```agario.cabal```: ```cabal build```
 
-To run the built executable, run ```cabal run```. For convenience, the Linux executable for the game is available in dist/agario. The executable can be run using: ```./agario``` (assuming the terminal is opened from the directory containing it).
+To run the built executable, run ```cabal run```. For convenience, the Linux executable for the game is available in dist/agario. The executable can be run using: ```./agario``` (assuming the terminal is opened from the directory containing it). 
+
+** The libary ```FreeGLUT``` is needed to run this executable.** On Debian-based Linux distros, this can be installed using ```sudo apt-get install freeglut3 freeglut3-dev```.
 
 ## Design Decisions ##
 - An add-on to the game was enabling networking support. This could not be done due to time contraints. However, the code has been written following the MVC design pattern. We therefore have the provision to convert it into a client-server game.
