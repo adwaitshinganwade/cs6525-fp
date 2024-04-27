@@ -80,6 +80,6 @@ executable agario
 test-suite tests
     type: exitcode-stdio-1.0
     main-is: Tests.hs
-    build-depends: base ^>=4.17.2.1, gloss==1.13.*, HUnit, containers, random
+    build-depends: base ^>=4.17.2.1, gloss==1.13.*, HUnit, containers, random, time
     hs-source-dirs: tests app
     default-language: Haskell2010
