@@ -1,6 +1,6 @@
 Both the Sudoku solver and generator can be run using ```ghci```. For both, the variables `m` nd `n` define the number of rows and columns in a Sudoku grid. There variables should be set as per the desired output (lines 8 and 11 in ```Sudoku.hs```).
 ## Sudoku Solver ##
-The solver can be run through a terminal opened in the directory containing ```Sudoku.hs```.
+The solver can be run through a terminal opened in the directory containing ```sudoku.hs```.
 
 ```ghci>``` :l sudoku.hs
 
