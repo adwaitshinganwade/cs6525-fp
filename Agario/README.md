@@ -23,9 +23,9 @@ The game has been built with the following:
 
 To build the game, run the following command in a terminal opened in the directory containing ```agario.cabal```: ```cabal build```
 
-To run the built executable, run ```cabal run```. For convenience, the Linux executable for the game is available in dist/agario. The executabel can be run using: ```./agario``` (assuming the terminal is opened from the directory containing it).
+To run the built executable, run ```cabal run```. For convenience, the Linux executable for the game is available in dist/agario. The executable can be run using: ```./agario``` (assuming the terminal is opened from the directory containing it).
 
 ## Design Decisions ##
-- An add-on to the game was adding networking support to it. This could not be done due to time contraints. However, the code has been written following the MVC design pattern. We therefore have the provision to convert it into a client-server game.
+- An add-on to the game was enabling networking support. This could not be done due to time contraints. However, the code has been written following the MVC design pattern. We therefore have the provision to convert it into a client-server game.
 - New players are generated such that they don't collide with other players and powerups. New powerups are created at random locations, which can lead to overlapping powerups.  
 - The logic that handles the physics of the game has been unit-tested. The tests can be found in ```tests/Tests.hs```. Tests can be launched using ```cabal test```. 
