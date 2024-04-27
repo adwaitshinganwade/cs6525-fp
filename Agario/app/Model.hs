@@ -15,6 +15,7 @@ defaultXSpeed = 8.0
 defaultPlayerSize = 10.0
 
 -- | The radius of the circle for a regular powerup
+regularPowerupSize :: Float
 regularPowerupSize = 10
 
 -- | The size boost that a powerup gives a player on consumption

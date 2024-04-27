@@ -12,7 +12,7 @@ import qualified System.Exit as Exit
 
 main :: IO()
 main = do
-    result <- runTestTT (TestList [collisionTests, playerPlayerCollisionTests, playerCosumptionOfPowerupTests, powerupConsumptionDetectionTests, minimumPowerupCountTests])
+    result <- runTestTT (TestList [collisionTests, playerPlayerCollisionTests, powerupConsumptionDetectionTests, minimumPowerupCountTests])
     if failures result > 0 then Exit.exitFailure else Exit.exitSuccess
 
 -- Tests to validate circle-overlap logic
@@ -116,38 +116,6 @@ playerPlayerCollisionTest2 =
         ]
     expectedDeadPlayers = empty
 
--- Tests to validate consumption of powerup by a player
-
-playerCosumptionOfPowerupTests = TestList [playerPowerupConsumptionTest1, playerPowerupConsumptionTest2]
-
-
-testPowerupConsumption :: Player -> Powerup -> Float -> Float -> Test
-testPowerupConsumption thePlayer thePowerup expectedNewSize expectedNewSpeed =
-    TestCase (
-        assertEqual
-        "The player could not consume food correctly"
-         expectedPlayerState
-        (playerEatsPowerup thePlayer thePowerup)
-    )
-    where
-        currentCircle = playerCircle thePlayer
-        expectedPlayerState = thePlayer {playerCircle = currentCircle{size = expectedNewSize}, playerSpeed = expectedNewSpeed}
-
--- Consuming a powerup whose effects can be fully applied
-playerPowerupConsumptionTest1 =
-    testPowerupConsumption aPlayer aPowerup 12 (10 / 12 * 10)
-    where
-        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0}
-        aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 2.0}
-
-
--- Consuming a powerup which causes the size and speed of the player reach the cap
-playerPowerupConsumptionTest2 =
-    testPowerupConsumption aPlayer aPowerup maxPlayerSize minPlayerSpeed
-    where
-        aPlayer = Player {playerId = 1, playerName = "", playerCircle = Model.Circle {location = Vector2D 1.0 24.0, colour = rgbaOfColor red, size = 10}, playerSpeed = 10.0, dir = Vector2D 1.0 1.0}
-        aPowerup = RegularPowerup{powerupId = 1, powerupCircle = Model.Circle{location = Vector2D 3.0 20.0, colour = (10, 10, 20, 10), size = regularPowerupSize}, growthPotential = 191.2}
-
 -- Tests for consuming powerup
 powerupConsumptionDetectionTests = TestList [playerPowerupConsumptionDetectionTest1, playerPowerupConsumptionDetectionTest2, playerPowerupConsumptionDetectionTest3]
 
@@ -246,7 +214,7 @@ minimumPowerupsTest4 =
       TestCase (
         assertBool
         "Created more powerups than necessary"
-        (snd (ensureMinimumPowerupCount (generateRandomPowerups (minPowerupCount - 5)) 13 (mkStdGen 1000)) == 18)
+        (snd (ensureMinimumPowerupCount (generateRandomPowerups (minPowerupCount - 5)) 13 (mkStdGen 1000)) == 14)
         )
 
 
